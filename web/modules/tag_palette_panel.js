@@ -596,9 +596,52 @@ export function injectTagPalettePanel(node) {
   // -------------------------------------------------------------------------
   // Register DOM widget
   // -------------------------------------------------------------------------
-  const MIN_PANEL_HEIGHT = 360;
+  const MIN_PANEL_HEIGHT = 380;
   const MIN_NODE_WIDTH = 680;
   const MIN_NODE_HEIGHT = 480;
+  // Minimum height the right column needs without flex-growth:
+  //   subcategory row (30) + search (30) + tag grid min-height (140) = 200.
+  const BODY_MIN_HEIGHT = 200;
+
+  /**
+   * Compute the panel's intrinsic content height — the height it would need
+   * *if the body did not flex-grow*. We sum the fixed-height header / preset
+   * / controls rows and add a fixed body minimum.
+   *
+   * panelEl.scrollHeight is intentionally NOT used here: with
+   * `.aph-tag-palette-panel { height: 100% }` and `.aph-tag-palette-body {
+   * flex: 1 1 auto }` the panel tracks the widget container's height, so
+   * scrollHeight feeds back into computeSize and the widget grows on every
+   * tick. This measurement is a function of the static rows only, so it
+   * stays stable regardless of how tall the container becomes.
+   *
+   * @returns {number} required panel height in CSS pixels (excludes the
+   *   widget container's own padding, which is added by the caller)
+   */
+  function intrinsicPanelHeight() {
+    const fixedRows = [headerEl, presetRowEl, situationRowEl, controlsEl];
+    let nonBody = 0;
+    for (const row of fixedRows) {
+      // Fall back to 30 px before the row has laid out (initial measure).
+      nonBody += row.offsetHeight || 30;
+    }
+    if (insertWarnEl.style.display !== "none") {
+      nonBody += insertWarnEl.offsetHeight || 30;
+    }
+    const gaps = 6 * 5;     // five 6 px gaps between flex-column children
+    const padding = 16;     // 8 px top + 8 px bottom panel padding
+    return Math.max(nonBody + BODY_MIN_HEIGHT + gaps + padding, MIN_PANEL_HEIGHT);
+  }
+
+  // Vertical space we ask computeSize to leave around the DOM widget so
+  // LiteGraph does NOT keep auto-growing the node. Static testing showed
+  // 30 was the threshold (chrome = 30 + 16 = 46), but live drag-resize
+  // triggers feedback at that value — once the node is stretched it stays
+  // stretched and slowly inflates further. 60 gives chrome ~76 (≈ title
+  // 30 + 46 px under the panel), which removes the feedback completely at
+  // the cost of a slightly thicker bottom margin.
+  const NODE_CHROME_HEIGHT = 60;
+
   const _panelWidget = node.addDOMWidget(
     "anima_tag_palette_panel",
     "div",
@@ -607,8 +650,15 @@ export function injectTagPalettePanel(node) {
   );
   if (_panelWidget) {
     _panelWidget.computeSize = function (width) {
-      const h = Math.max(panelEl.scrollHeight || 480, MIN_PANEL_HEIGHT);
-      return [width, h + 16];
+      // Floor at the intrinsic content height so the body's right column min
+      // is always satisfied. Otherwise, track the node's height — when the
+      // user (or a saved workflow) makes the node taller than the minimum,
+      // grow the widget so the panel fills the node instead of leaving a
+      // dead band of widget background beneath it.
+      const intrinsic = intrinsicPanelHeight();
+      const nodeBased = (node.size && node.size[1]) - NODE_CHROME_HEIGHT;
+      const h = Math.max(intrinsic, nodeBased || 0);
+      return [width, h];
     };
     // Workaround for the new Vue node inspector: WidgetLegacy.vue mounts when
     // a node is clicked and runs `widgetInstance.width = container.clientWidth`
@@ -668,8 +718,7 @@ export function injectTagPalettePanel(node) {
 
   requestAnimationFrame(() => {
     enforceMinNodeSize();
-    const h = Math.max(panelEl.scrollHeight || 480, MIN_PANEL_HEIGHT);
-    const targetH = h + 60;
+    const targetH = intrinsicPanelHeight() + 60;
     if (node.size[1] < targetH) {
       node.size[1] = targetH;
       node.graph && node.graph.setDirtyCanvas(true, true);
@@ -677,13 +726,16 @@ export function injectTagPalettePanel(node) {
   });
 
   // --- Auto-resize ---
+  // Observe panel size changes only so we can react when the (rare) extra
+  // dynamic rows appear or disappear (e.g. insertWarnEl). We measure the
+  // intrinsic content height (NOT panelEl.scrollHeight) to avoid the
+  // self-feeding loop that height:100% on the panel would otherwise trigger.
   let _resizing = false;
   const _resizeObs = new ResizeObserver(() => {
     if (!node.graph || _resizing) return;
     _resizing = true;
     requestAnimationFrame(() => {
-      const h = Math.max(panelEl.scrollHeight || 480, MIN_PANEL_HEIGHT);
-      const targetH = h + 60;
+      const targetH = intrinsicPanelHeight() + 60;
       if (node.size[1] < targetH - 8) {
         node.size[1] = targetH;
         node.graph.setDirtyCanvas(true, true);

@@ -375,10 +375,18 @@
    AnimaTagPalette panel extras
    ============================================================================= */
 
-/* Slightly distinct border to differentiate from Composer */
+/* Slightly distinct border to differentiate from Composer.
+   height:100% lets the panel fill whatever vertical space LiteGraph gives
+   the widget container, so the body flex-grows into any extra height
+   instead of leaving a dead zone below the rows. The companion fix —
+   keeping computeSize / the resize observer off panel.scrollHeight — is
+   in tag_palette_panel.js (otherwise scrollHeight tracks the container and
+   the widget self-feeds an infinite grow loop). */
 .aph-tag-palette-panel {
   border: 1px solid rgba(80, 160, 120, 0.4);
   border-radius: 4px;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 /* Controls row: Composer selector + Field selector + Insert button */
@@ -454,12 +462,18 @@
   line-height: 1.4;
 }
 
-/* --- Tag palette body: 2-column layout (vertical sidebar + content) --- */
+/* --- Tag palette body: 2-column layout (vertical sidebar + content) ---
+   The body grows to absorb any extra height the widget container hands us,
+   so the tag grid can fill the available vertical space instead of leaving
+   a dead zone below it (the previous fixed-height grid sat near the top
+   of the right column, making the panel look as if its content had shrunk
+   inside the widget background). */
 .aph-tag-palette-body {
   display: flex;
   flex-direction: row;
   gap: 8px;
   align-items: stretch;
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
 }
@@ -467,12 +481,25 @@
 .aph-tag-palette-right-col {
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-/* Vertical tab strip variant — used inside .aph-tag-palette-body */
+/* When the tag grid lives inside the sidebar layout, let it flex-grow to
+   absorb the right column's remaining height instead of capping at 180px. */
+.aph-tag-palette-right-col .aph-tag-grid {
+  flex: 1 1 auto;
+  max-height: none;
+  min-height: 140px;
+}
+
+/* Vertical tab strip variant — used inside .aph-tag-palette-body.
+   No max-height: the strip stretches to the body's height (driven by the
+   widget container) and its own overflow-y: auto handles the overflow when
+   there are more categories than fit. This keeps the sidebar and the right
+   column the same height so neither leaves an empty band at the bottom. */
 .aph-tab-strip--vertical {
   flex-direction: column;
   flex-wrap: nowrap;
@@ -482,7 +509,6 @@
   flex: 0 0 150px;
   min-width: 0;
   min-height: 0;
-  max-height: 320px;
   padding-right: 4px;
   padding-bottom: 0;
   gap: 3px;
