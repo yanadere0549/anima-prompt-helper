@@ -11,6 +11,7 @@ import { app } from "/scripts/app.js";
 import { injectNegativePalettePanel, setNegativeCaches } from "../modules/negative_panel.js";
 import { injectTagPalettePanel, setTagPaletteCaches } from "../modules/tag_palette_panel.js";
 import { CharacterPresetStore } from "../modules/character_presets.js";
+import { SituationPresetStore } from "../modules/situation_presets.js";
 import { setArtistList, attachArtistSuggest } from "../modules/artist_suggest.js";
 
 // --- Inject stylesheet ---
@@ -26,6 +27,7 @@ import { setArtistList, attachArtistSuggest } from "../modules/artist_suggest.js
 let paletteCache = null;
 let specCache = null;
 let characterPresetsCache = null;
+let situationPresetsCache = null;
 let artistsCache = null;
 
 /**
@@ -104,6 +106,39 @@ async function fetchCharacterPresets() {
 }
 
 /**
+ * Fetch situation presets from the backend.
+ * Tries the API endpoint first; falls back to the static file URL on 404.
+ * @returns {Promise<Object|null>}
+ */
+async function fetchSituationPresets() {
+  try {
+    const resp = await fetch("/anima_prompt_helper/situation_presets");
+    if (resp.ok) {
+      return await resp.json();
+    }
+    if (resp.status !== 404) {
+      console.warn("[AnimaPromptHelper] situation_presets fetch failed:", resp.status);
+      return null;
+    }
+  } catch (err) {
+    console.warn("[AnimaPromptHelper] situation_presets fetch error (primary):", err);
+    return null;
+  }
+  // Fallback: static file
+  try {
+    const resp = await fetch("/extensions/anima-prompt-helper/data/situation_presets.json");
+    if (!resp.ok) {
+      console.warn("[AnimaPromptHelper] situation_presets fallback fetch failed:", resp.status);
+      return null;
+    }
+    return await resp.json();
+  } catch (err) {
+    console.warn("[AnimaPromptHelper] situation_presets fallback fetch error:", err);
+    return null;
+  }
+}
+
+/**
  * Fetch the trimmed artist suggest index from the backend.
  * Returns the entries array (not the wrapper object) on success, or null
  * on any failure so callers can degrade gracefully.
@@ -137,10 +172,11 @@ app.registerExtension({
    * Lazily fetches palette and spec; caches them in module scope.
    */
   async setup() {
-    [paletteCache, specCache, characterPresetsCache, artistsCache] = await Promise.all([
+    [paletteCache, specCache, characterPresetsCache, situationPresetsCache, artistsCache] = await Promise.all([
       fetchPalette(),
       fetchSpec(),
       fetchCharacterPresets(),
+      fetchSituationPresets(),
       fetchArtists(),
     ]);
     setNegativeCaches(paletteCache, specCache);
@@ -157,6 +193,11 @@ app.registerExtension({
       CharacterPresetStore.init(characterPresetsCache);
     } else {
       console.warn("[AnimaPromptHelper] setup: character presets unavailable — dropdown will show disabled.");
+    }
+    if (situationPresetsCache) {
+      SituationPresetStore.init(situationPresetsCache);
+    } else {
+      console.warn("[AnimaPromptHelper] setup: situation presets unavailable — dropdown will show disabled.");
     }
     if (!artistsCache) {
       console.warn("[AnimaPromptHelper] setup: artist suggest index unavailable — artist autocomplete disabled.");

@@ -1,0 +1,403 @@
+{
+  "version": "1.0",
+  "presets": [
+    {
+      "id": "school_morning_classroom",
+      "label": "教室の朝 / School morning classroom",
+      "category": "daily",
+      "count_override": null,
+      "general_tags": ["classroom", "school desk", "school uniform", "morning", "sunlight", "window", "indoors", "sitting"],
+      "natural_language": "She sits at her desk in a sunlit classroom in the early morning, dust motes floating in the warm light.",
+      "notes": "Default school setting. Pairs well with any school-girl character preset.",
+      "tier": 5
+    },
+    {
+      "id": "school_rooftop_lunch",
+      "label": "屋上のお昼休み / School rooftop lunch",
+      "category": "daily",
+      "count_override": null,
+      "general_tags": ["rooftop", "school uniform", "fence", "blue sky", "clouds", "outdoors", "sitting", "bento", "lunch"],
+      "natural_language": "She eats her bento on the school rooftop under a bright blue sky.",
+      "notes": "Classic anime trope: rooftop lunch break.",
+      "tier": 5
+    },
+    {
+      "id": "cafe_afternoon",
+      "label": "午後のカフェ / Afternoon cafe",
+      "category": "daily",
+      "count_override": null,
+      "general_tags": ["cafe", "indoors", "coffee cup", "table", "sitting", "casual", "warm lighting", "window light"],
+      "natural_language": "She sips coffee at a window-side cafe table in the soft afternoon light.",
+      "notes": "Warm, calm, slice-of-life mood.",
+      "tier": 5
+    },
+    {
+      "id": "bedroom_morning",
+      "label": "目覚めの寝室 / Bedroom in the morning",
+      "category": "daily",
+      "count_override": null,
+      "general_tags": ["bedroom", "bed", "pajamas", "indoors", "morning", "sunlight", "lying", "messy hair", "stretching"],
+      "natural_language": "She has just woken up, sitting on her bed as morning light spills through the curtains.",
+      "notes": "Intimate slice-of-life morning scene.",
+      "tier": 4
+    },
+    {
+      "id": "shopping_mall",
+      "label": "ショッピングモール / Shopping mall",
+      "category": "daily",
+      "count_override": null,
+      "general_tags": ["shopping", "shopping mall", "casual clothes", "shopping bag", "indoors", "standing", "smile"],
+      "natural_language": "She browses brightly-lit storefronts in a busy shopping mall, carrying a paper shopping bag.",
+      "notes": "",
+      "tier": 3
+    },
+    {
+      "id": "kitchen_cooking",
+      "label": "キッチンで料理 / Cooking in the kitchen",
+      "category": "daily",
+      "count_override": null,
+      "general_tags": ["kitchen", "apron", "cooking", "indoors", "standing", "smile", "warm lighting"],
+      "natural_language": "She is happily cooking in a homey kitchen, wearing an apron over her clothes.",
+      "notes": "Domestic / wholesome.",
+      "tier": 4
+    },
+
+    {
+      "id": "beach_sunset",
+      "label": "夕暮れの海辺 / Beach at sunset",
+      "category": "nature",
+      "count_override": null,
+      "general_tags": ["beach", "ocean", "sunset", "sky", "wind", "outdoors", "standing", "looking at viewer", "barefoot"],
+      "natural_language": "She stands barefoot on the sand as the sun sets over the ocean, hair drifting in the warm sea breeze.",
+      "notes": "Classic golden-hour beach scene.",
+      "tier": 5
+    },
+    {
+      "id": "cherry_blossom_park",
+      "label": "桜の下 / Under cherry blossoms",
+      "category": "nature",
+      "count_override": null,
+      "general_tags": ["cherry blossoms", "petals", "spring", "outdoors", "park", "tree", "wind", "smile"],
+      "natural_language": "She stands beneath a cherry tree in full bloom, pink petals drifting around her in the spring breeze.",
+      "notes": "Iconic spring scene.",
+      "tier": 5
+    },
+    {
+      "id": "forest_path",
+      "label": "森の小道 / Forest path",
+      "category": "nature",
+      "count_override": null,
+      "general_tags": ["forest", "tree", "nature", "sunlight", "outdoors", "leaves", "shadows", "walking"],
+      "natural_language": "She walks down a quiet forest path as sunlight filters through the canopy of leaves above.",
+      "notes": "Calm, peaceful nature scene.",
+      "tier": 4
+    },
+    {
+      "id": "flower_field",
+      "label": "花畑 / Flower field",
+      "category": "nature",
+      "count_override": null,
+      "general_tags": ["flower field", "flowers", "outdoors", "blue sky", "wind", "standing", "smile", "summer"],
+      "natural_language": "She stands in a vast field of wildflowers under a clear blue sky.",
+      "notes": "",
+      "tier": 4
+    },
+    {
+      "id": "mountain_overlook",
+      "label": "山頂の眺望 / Mountain overlook",
+      "category": "nature",
+      "count_override": null,
+      "general_tags": ["mountain", "scenery", "from behind", "wind", "outdoors", "clouds", "wide shot", "standing"],
+      "natural_language": "She stands at the edge of a mountain overlook, gazing across the cloudy valley below.",
+      "notes": "Wide vista scene; good for mood/scenery focus.",
+      "tier": 3
+    },
+    {
+      "id": "starry_night_lake",
+      "label": "星空と湖 / Starry night by the lake",
+      "category": "nature",
+      "count_override": null,
+      "general_tags": ["lake", "night", "starry sky", "milky way", "reflection", "outdoors", "sitting", "dark"],
+      "natural_language": "She sits at the edge of a glassy lake under a sky full of stars, the Milky Way reflected on the water.",
+      "notes": "",
+      "tier": 4
+    },
+
+    {
+      "id": "rainy_street",
+      "label": "雨の街角 / Rainy street corner",
+      "category": "weather",
+      "count_override": null,
+      "general_tags": ["rain", "umbrella", "wet", "puddle", "street", "city", "outdoors", "reflection", "overcast"],
+      "natural_language": "She walks along a wet city street under a transparent umbrella, neon signs reflecting in the puddles.",
+      "notes": "",
+      "tier": 5
+    },
+    {
+      "id": "snowy_town",
+      "label": "雪の街 / Snowy town",
+      "category": "weather",
+      "count_override": null,
+      "general_tags": ["snow", "snowing", "winter", "coat", "scarf", "outdoors", "town", "white breath", "cold"],
+      "natural_language": "She walks through softly falling snow in a small, quiet town, her breath visible in the cold air.",
+      "notes": "",
+      "tier": 5
+    },
+    {
+      "id": "stormy_sky",
+      "label": "嵐の空 / Stormy sky",
+      "category": "weather",
+      "count_override": null,
+      "general_tags": ["storm", "dark clouds", "wind", "lightning", "dramatic sky", "outdoors", "hair blowing", "from below"],
+      "natural_language": "She stands defiantly against a violent storm, lightning splitting the dark clouds above her.",
+      "notes": "Dramatic / cinematic mood.",
+      "tier": 3
+    },
+    {
+      "id": "foggy_morning",
+      "label": "霧の朝 / Foggy morning",
+      "category": "weather",
+      "count_override": null,
+      "general_tags": ["fog", "mist", "morning", "outdoors", "dim lighting", "atmospheric", "silhouette", "quiet"],
+      "natural_language": "She emerges from a thick morning fog, her silhouette half-lost in the cool gray mist.",
+      "notes": "",
+      "tier": 4
+    },
+    {
+      "id": "clear_blue_sky",
+      "label": "快晴の空 / Clear blue sky",
+      "category": "weather",
+      "count_override": null,
+      "general_tags": ["blue sky", "clear sky", "sunny", "clouds", "outdoors", "wide shot", "wind", "bright"],
+      "natural_language": "Bright sunlight pours from a wide, almost cloudless sky as she stands looking up at it.",
+      "notes": "",
+      "tier": 3
+    },
+
+    {
+      "id": "summer_festival",
+      "label": "夏祭り / Summer festival (matsuri)",
+      "category": "season",
+      "count_override": null,
+      "general_tags": ["summer festival", "yukata", "obi", "night", "lanterns", "food stall", "festival", "outdoors", "crowd"],
+      "natural_language": "She wears a colorful yukata at a summer festival, paper lanterns glowing warmly above the food stalls.",
+      "notes": "Yukata + lantern night festival, very iconic.",
+      "tier": 5
+    },
+    {
+      "id": "autumn_leaves",
+      "label": "紅葉 / Autumn leaves",
+      "category": "season",
+      "count_override": null,
+      "general_tags": ["autumn", "maple leaf", "red leaves", "falling leaves", "park", "outdoors", "scarf", "wind"],
+      "natural_language": "She walks through a path covered in red and gold maple leaves, autumn wind tugging at her scarf.",
+      "notes": "",
+      "tier": 4
+    },
+    {
+      "id": "christmas_night",
+      "label": "クリスマスの夜 / Christmas night",
+      "category": "season",
+      "count_override": null,
+      "general_tags": ["christmas", "christmas tree", "lights", "winter", "snow", "night", "santa costume", "warm lighting", "indoors"],
+      "natural_language": "She smiles beside a glittering Christmas tree as warm fairy lights bathe the room.",
+      "notes": "Holiday-themed scene.",
+      "tier": 4
+    },
+    {
+      "id": "new_year_shrine",
+      "label": "初詣 / New Year shrine visit",
+      "category": "season",
+      "count_override": null,
+      "general_tags": ["shrine", "torii", "kimono", "winter", "outdoors", "stone lantern", "praying", "japan"],
+      "natural_language": "She visits a snow-dusted shrine in a formal kimono for the New Year's first prayer.",
+      "notes": "Hatsumode scene.",
+      "tier": 4
+    },
+
+    {
+      "id": "neon_cyberpunk_city",
+      "label": "ネオン街 / Neon cyberpunk city",
+      "category": "urban",
+      "count_override": null,
+      "general_tags": ["cyberpunk", "neon lights", "city", "night", "rain", "reflection", "futuristic", "outdoors", "skyscraper"],
+      "natural_language": "She stands at a neon-soaked crossroads in a rainy cyberpunk city, holographic signs flickering above.",
+      "notes": "Cyberpunk aesthetic.",
+      "tier": 5
+    },
+    {
+      "id": "night_city_rooftop",
+      "label": "夜景の屋上 / Night city rooftop",
+      "category": "urban",
+      "count_override": null,
+      "general_tags": ["rooftop", "cityscape", "night", "city lights", "wind", "from behind", "skyscraper", "outdoors"],
+      "natural_language": "She looks out over a glittering nighttime cityscape from a high rooftop, wind tugging at her hair.",
+      "notes": "",
+      "tier": 5
+    },
+    {
+      "id": "train_station_platform",
+      "label": "駅のホーム / Train station platform",
+      "category": "urban",
+      "count_override": null,
+      "general_tags": ["train station", "platform", "train", "indoors", "waiting", "evening", "fluorescent lights", "looking away"],
+      "natural_language": "She waits alone on a quiet train platform as the evening train approaches.",
+      "notes": "Lonely / cinematic city moment.",
+      "tier": 4
+    },
+    {
+      "id": "alleyway_neon",
+      "label": "裏路地のネオン / Neon alleyway",
+      "category": "urban",
+      "count_override": null,
+      "general_tags": ["alley", "neon sign", "night", "city", "puddle", "narrow", "moody lighting", "outdoors"],
+      "natural_language": "She walks down a narrow alleyway lit only by buzzing neon signs and reflections in shallow puddles.",
+      "notes": "",
+      "tier": 3
+    },
+
+    {
+      "id": "magic_circle_summoning",
+      "label": "魔法陣の召喚 / Magic circle summoning",
+      "category": "fantasy",
+      "count_override": null,
+      "general_tags": ["magic circle", "magic", "glowing", "spell", "fantasy", "casting spell", "robe", "indoors", "dark"],
+      "natural_language": "She stands at the center of a glowing magic circle, arcane runes spinning in the air around her.",
+      "notes": "Magical girl / fantasy mage scene.",
+      "tier": 5
+    },
+    {
+      "id": "dragon_battle",
+      "label": "ドラゴンとの対峙 / Facing a dragon",
+      "category": "fantasy",
+      "count_override": null,
+      "general_tags": ["dragon", "fantasy", "sword", "armor", "outdoors", "epic", "from behind", "wide shot", "fire"],
+      "natural_language": "She raises her sword against a colossal dragon wreathed in fire and smoke.",
+      "notes": "Cinematic battle scene.",
+      "tier": 4
+    },
+    {
+      "id": "enchanted_forest",
+      "label": "魔法の森 / Enchanted forest",
+      "category": "fantasy",
+      "count_override": null,
+      "general_tags": ["forest", "magic", "glowing", "fireflies", "fantasy", "outdoors", "tree", "mushroom", "fairy lights"],
+      "natural_language": "She wanders through an enchanted forest filled with glowing fireflies and softly humming mushrooms.",
+      "notes": "",
+      "tier": 4
+    },
+    {
+      "id": "dungeon_torch",
+      "label": "松明のダンジョン / Dungeon by torchlight",
+      "category": "fantasy",
+      "count_override": null,
+      "general_tags": ["dungeon", "torch", "stone", "indoors", "dark", "armor", "fantasy", "sword", "shadows"],
+      "natural_language": "She advances cautiously through a stone dungeon, a single torch carving warm light from the darkness.",
+      "notes": "",
+      "tier": 3
+    },
+    {
+      "id": "royal_throne_room",
+      "label": "王座の間 / Royal throne room",
+      "category": "fantasy",
+      "count_override": null,
+      "general_tags": ["throne", "throne room", "crown", "dress", "indoors", "luxurious", "marble", "fantasy", "regal"],
+      "natural_language": "She sits regally upon an ornate throne in a grand marble hall lit by golden chandeliers.",
+      "notes": "Royalty / queen scene.",
+      "tier": 4
+    },
+
+    {
+      "id": "spaceship_cockpit",
+      "label": "宇宙船コックピット / Spaceship cockpit",
+      "category": "scifi",
+      "count_override": null,
+      "general_tags": ["spaceship", "cockpit", "futuristic", "control panel", "sci-fi", "indoors", "sitting", "uniform", "stars"],
+      "natural_language": "She pilots a sleek spaceship cockpit, distant stars streaming past the curved viewport.",
+      "notes": "",
+      "tier": 4
+    },
+    {
+      "id": "mecha_hangar",
+      "label": "メカ格納庫 / Mecha hangar",
+      "category": "scifi",
+      "count_override": null,
+      "general_tags": ["mecha", "robot", "hangar", "pilot suit", "indoors", "industrial", "sci-fi", "machinery", "from below"],
+      "natural_language": "She stands in a vast mecha hangar, gazing up at the towering robot frame above her.",
+      "notes": "",
+      "tier": 4
+    },
+    {
+      "id": "holographic_lab",
+      "label": "ホログラム研究室 / Holographic laboratory",
+      "category": "scifi",
+      "count_override": null,
+      "general_tags": ["laboratory", "hologram", "futuristic", "screen", "sci-fi", "indoors", "lab coat", "glow", "data"],
+      "natural_language": "She studies floating holographic data screens in a brightly lit futuristic laboratory.",
+      "notes": "",
+      "tier": 3
+    },
+
+    {
+      "id": "studio_photoshoot",
+      "label": "スタジオ撮影 / Studio photoshoot",
+      "category": "studio",
+      "count_override": null,
+      "general_tags": ["studio", "photoshoot", "professional lighting", "indoors", "posing", "looking at viewer", "white background"],
+      "natural_language": "She poses confidently under professional studio lights against a clean backdrop.",
+      "notes": "Clean, lit-from-front portrait style.",
+      "tier": 4
+    },
+    {
+      "id": "concert_stage",
+      "label": "コンサートステージ / Concert stage",
+      "category": "studio",
+      "count_override": null,
+      "general_tags": ["concert", "stage", "microphone", "spotlight", "crowd", "idol", "performance", "smile", "outstretched arm"],
+      "natural_language": "She sings into a microphone on a brightly-lit concert stage, the cheering crowd visible below.",
+      "notes": "Idol / live concert scene.",
+      "tier": 5
+    },
+    {
+      "id": "dressing_room",
+      "label": "楽屋 / Dressing room",
+      "category": "studio",
+      "count_override": null,
+      "general_tags": ["dressing room", "mirror", "vanity", "indoors", "warm lighting", "sitting", "makeup", "stage outfit"],
+      "natural_language": "She sits before a brightly-lit vanity mirror in a backstage dressing room, preparing for the performance.",
+      "notes": "",
+      "tier": 3
+    },
+
+    {
+      "id": "sword_battle_ready",
+      "label": "剣を構える / Battle-ready with sword",
+      "category": "battle",
+      "count_override": null,
+      "general_tags": ["sword", "fighting stance", "katana", "battle", "outdoors", "wind", "determined expression", "armor"],
+      "natural_language": "She raises her katana into a battle stance, eyes locked on an unseen enemy.",
+      "notes": "",
+      "tier": 4
+    },
+    {
+      "id": "gun_action",
+      "label": "銃撃アクション / Gun action",
+      "category": "battle",
+      "count_override": null,
+      "general_tags": ["gun", "pistol", "aiming", "action pose", "city", "outdoors", "serious", "from side", "smoke"],
+      "natural_language": "She levels a pistol with steady hands, smoke curling from the muzzle in a tense city stand-off.",
+      "notes": "",
+      "tier": 4
+    },
+    {
+      "id": "magical_girl_transform",
+      "label": "魔法少女変身 / Magical girl transformation",
+      "category": "battle",
+      "count_override": null,
+      "general_tags": ["magical girl", "transformation", "glowing", "magic", "ribbon", "sparkle", "floating", "fantasy", "dramatic"],
+      "natural_language": "She is mid-transformation, ribbons of light spiraling around her against a sea of stars.",
+      "notes": "",
+      "tier": 5
+    }
+  ]
+}

@@ -24,6 +24,13 @@ import {
   parseWeightedTag,
 } from "./composer.js";
 import { CharacterPresetStore, applyPreset } from "./character_presets.js";
+import { SituationPresetStore, applySituationPreset } from "./situation_presets.js";
+import {
+  openPresetEditor,
+  quickSaveFromComposer,
+  openSituationPresetEditor,
+  quickSaveSituationFromComposer,
+} from "./preset_editor.js";
 import {
   attachPersistence,
   getSelectedTab,
@@ -72,6 +79,22 @@ export function setTagPaletteCaches(paletteCache, specCache) {
 // ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
+
+const _CATEGORY_LABELS = {
+  daily: "🏠 Daily",
+  nature: "🌿 Nature",
+  weather: "🌧 Weather",
+  season: "🍂 Season",
+  urban: "🌆 Urban",
+  fantasy: "🐉 Fantasy",
+  scifi: "🚀 Sci-Fi",
+  studio: "🎬 Studio",
+  battle: "⚔ Battle",
+};
+
+function _categoryLabel(cat) {
+  return _CATEGORY_LABELS[cat] || cat || "Other";
+}
 
 /**
  * Debounce utility (used internally).
@@ -272,29 +295,161 @@ export function injectTagPalettePanel(node) {
   headerEl.appendChild(headerIcon);
   headerEl.appendChild(headerTitle);
 
-  // --- Character preset dropdown ---
+  // --- Character preset row: dropdown + action buttons ---
+  const presetRowEl = document.createElement("div");
+  presetRowEl.className = "aph-preset-row";
+
   const presetSelect = document.createElement("select");
   presetSelect.className = "aph-preset-select";
   presetSelect.setAttribute("aria-label", "Character preset");
-  const defaultOpt = document.createElement("option");
-  defaultOpt.value = "";
-  defaultOpt.textContent = "-- Character preset --";
-  presetSelect.appendChild(defaultOpt);
-  const allPresets = CharacterPresetStore ? CharacterPresetStore.getAll() : [];
-  if (allPresets.length === 0) {
-    presetSelect.disabled = true;
-    const unavailableOpt = document.createElement("option");
-    unavailableOpt.value = "";
-    unavailableOpt.textContent = "presets unavailable";
-    presetSelect.appendChild(unavailableOpt);
-  } else {
-    for (const preset of allPresets) {
-      const opt = document.createElement("option");
-      opt.value = preset.id;
-      opt.textContent = preset.label || preset.id;
-      presetSelect.appendChild(opt);
+
+  /**
+   * Rebuild the preset dropdown from the current CharacterPresetStore state.
+   * Splits user (★) and builtin presets into two <optgroup> sections.
+   */
+  function rebuildPresetOptions() {
+    while (presetSelect.firstChild) presetSelect.removeChild(presetSelect.firstChild);
+    const defaultOpt = document.createElement("option");
+    defaultOpt.value = "";
+    defaultOpt.textContent = "-- Character preset --";
+    presetSelect.appendChild(defaultOpt);
+
+    const presets = CharacterPresetStore ? CharacterPresetStore.getAll() : [];
+    if (presets.length === 0) {
+      presetSelect.disabled = true;
+      const unavailableOpt = document.createElement("option");
+      unavailableOpt.value = "";
+      unavailableOpt.textContent = "presets unavailable";
+      presetSelect.appendChild(unavailableOpt);
+      return;
+    }
+    presetSelect.disabled = false;
+    const userPresets = presets.filter((p) => p.user);
+    const builtinPresets = presets.filter((p) => !p.user);
+    if (userPresets.length > 0) {
+      const userGroup = document.createElement("optgroup");
+      userGroup.label = "★ My Presets";
+      for (const p of userPresets) {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = "★ " + (p.label || p.id);
+        userGroup.appendChild(opt);
+      }
+      presetSelect.appendChild(userGroup);
+    }
+    if (builtinPresets.length > 0) {
+      const biGroup = document.createElement("optgroup");
+      biGroup.label = "Builtin";
+      for (const p of builtinPresets) {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.label || p.id;
+        biGroup.appendChild(opt);
+      }
+      presetSelect.appendChild(biGroup);
     }
   }
+
+  rebuildPresetOptions();
+
+  // Action buttons
+  const newPresetBtn = document.createElement("button");
+  newPresetBtn.type = "button";
+  newPresetBtn.className = "aph-preset-action-btn";
+  newPresetBtn.title = "新規プリセット作成";
+  newPresetBtn.setAttribute("aria-label", "新規プリセット作成");
+  newPresetBtn.textContent = "+";
+
+  const saveCurrentBtn = document.createElement("button");
+  saveCurrentBtn.type = "button";
+  saveCurrentBtn.className = "aph-preset-action-btn";
+  saveCurrentBtn.title = "対象Composerの現在の値をプリセットとして保存";
+  saveCurrentBtn.setAttribute("aria-label", "現在の値を保存");
+  saveCurrentBtn.textContent = "📷";
+
+  const editPresetBtn = document.createElement("button");
+  editPresetBtn.type = "button";
+  editPresetBtn.className = "aph-preset-action-btn";
+  editPresetBtn.title = "選択中プリセットを編集 (★ユーザープリセットのみ)";
+  editPresetBtn.setAttribute("aria-label", "プリセット編集");
+  editPresetBtn.textContent = "✎";
+  editPresetBtn.disabled = true;
+
+  presetRowEl.appendChild(presetSelect);
+  presetRowEl.appendChild(newPresetBtn);
+  presetRowEl.appendChild(saveCurrentBtn);
+  presetRowEl.appendChild(editPresetBtn);
+
+  // --- Situation preset row ---
+  const situationRowEl = document.createElement("div");
+  situationRowEl.className = "aph-preset-row";
+
+  const situationSelect = document.createElement("select");
+  situationSelect.className = "aph-preset-select aph-situation-select";
+  situationSelect.setAttribute("aria-label", "Situation preset");
+
+  function rebuildSituationOptions() {
+    while (situationSelect.firstChild) {
+      situationSelect.removeChild(situationSelect.firstChild);
+    }
+    const defaultOpt = document.createElement("option");
+    defaultOpt.value = "";
+    defaultOpt.textContent = "-- Situation preset --";
+    situationSelect.appendChild(defaultOpt);
+
+    const cats = SituationPresetStore ? SituationPresetStore.getCategories() : [];
+    if (cats.length === 0) {
+      situationSelect.disabled = true;
+      const unavailableOpt = document.createElement("option");
+      unavailableOpt.value = "";
+      unavailableOpt.textContent = "situation presets unavailable";
+      situationSelect.appendChild(unavailableOpt);
+      return;
+    }
+    situationSelect.disabled = false;
+    for (const cat of cats) {
+      const group = document.createElement("optgroup");
+      group.label = _categoryLabel(cat);
+      for (const p of SituationPresetStore.getByCategory(cat)) {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = (p.user ? "★ " : "") + (p.label || p.id);
+        group.appendChild(opt);
+      }
+      situationSelect.appendChild(group);
+    }
+  }
+
+  rebuildSituationOptions();
+
+  // Situation action buttons (mirror character preset row)
+  const newSituationBtn = document.createElement("button");
+  newSituationBtn.type = "button";
+  newSituationBtn.className = "aph-preset-action-btn";
+  newSituationBtn.title = "新規シチュエーション作成";
+  newSituationBtn.setAttribute("aria-label", "新規シチュエーション作成");
+  newSituationBtn.textContent = "+";
+
+  const saveCurrentSituationBtn = document.createElement("button");
+  saveCurrentSituationBtn.type = "button";
+  saveCurrentSituationBtn.className = "aph-preset-action-btn";
+  saveCurrentSituationBtn.title =
+    "対象Composerの現在の値をシチュエーションプリセットとして保存";
+  saveCurrentSituationBtn.setAttribute("aria-label", "現在の値をシチュエーション保存");
+  saveCurrentSituationBtn.textContent = "📷";
+
+  const editSituationBtn = document.createElement("button");
+  editSituationBtn.type = "button";
+  editSituationBtn.className = "aph-preset-action-btn";
+  editSituationBtn.title = "選択中シチュエーションを編集 (★ユーザープリセットのみ)";
+  editSituationBtn.setAttribute("aria-label", "シチュエーション編集");
+  editSituationBtn.textContent = "✎";
+  editSituationBtn.disabled = true;
+
+  situationRowEl.appendChild(situationSelect);
+  situationRowEl.appendChild(newSituationBtn);
+  situationRowEl.appendChild(saveCurrentSituationBtn);
+  situationRowEl.appendChild(editSituationBtn);
 
   // --- Controls row: Composer selector + Field selector + Insert button ---
   const controlsEl = document.createElement("div");
@@ -371,7 +526,8 @@ export function injectTagPalettePanel(node) {
   // Assemble panel in specified DOM order
   // -------------------------------------------------------------------------
   panelEl.appendChild(headerEl);
-  panelEl.appendChild(presetSelect);
+  panelEl.appendChild(presetRowEl);
+  panelEl.appendChild(situationRowEl);
   panelEl.appendChild(controlsEl);
   panelEl.appendChild(insertWarnEl);
   panelEl.appendChild(tabStrip);
@@ -937,32 +1093,159 @@ export function injectTagPalettePanel(node) {
     insertWarnEl.style.display = "none";
   });
 
-  // --- Preset change handler ---
+  /** Helper: find the currently selected target Composer node (or null). */
+  function _resolveTargetComposer() {
+    const composerNodeId = parseInt(composerSelect.value, 10);
+    if (!composerNodeId || !node.graph) return null;
+    const composers = getComposerNodes(node.graph);
+    return composers.find((c) => c.id === composerNodeId) || null;
+  }
+
+  /** Update editPresetBtn enabled state based on the currently selected preset. */
+  function _refreshEditButtonState() {
+    const id = presetSelect.value;
+    if (!id) {
+      editPresetBtn.disabled = true;
+      return;
+    }
+    const p = CharacterPresetStore ? CharacterPresetStore.getById(id) : null;
+    editPresetBtn.disabled = !(p && p.user);
+  }
+
+  // --- Preset change handler (apply to target composer) ---
   presetSelect.addEventListener("change", () => {
+    _refreshEditButtonState();
     const selectedId = presetSelect.value;
     if (!selectedId) return;
     const preset = CharacterPresetStore ? CharacterPresetStore.getById(selectedId) : null;
     if (!preset) return;
-    const composerNodeId = parseInt(composerSelect.value, 10);
-    if (!composerNodeId || !node.graph) {
+    const targetComposer = _resolveTargetComposer();
+    if (!targetComposer) {
       insertWarnEl.textContent = "対象 Composer を選択してください。";
       insertWarnEl.style.display = "";
-      presetSelect.value = "";
-      return;
-    }
-    const composers = getComposerNodes(node.graph);
-    const targetComposer = composers.find((c) => c.id === composerNodeId);
-    if (!targetComposer) {
-      insertWarnEl.textContent = "指定した Composer がグラフ上に見つかりません。";
-      insertWarnEl.style.display = "";
-      presetSelect.value = "";
+      // keep selection so user can click edit / re-apply after selecting composer
       return;
     }
     applyPreset(targetComposer, preset);
     insertWarnEl.style.display = "none";
-    presetSelect.value = "";
-    presetSelect.focus();
   });
+
+  // --- "+" new preset button ---
+  newPresetBtn.addEventListener("click", () => {
+    openPresetEditor({ mode: "create" });
+  });
+
+  // --- "📷" save current composer state as preset ---
+  saveCurrentBtn.addEventListener("click", () => {
+    const targetComposer = _resolveTargetComposer();
+    if (!targetComposer) {
+      insertWarnEl.textContent =
+        "現在の値を保存するには、まず対象 Composer を選択してください。";
+      insertWarnEl.style.display = "";
+      return;
+    }
+    insertWarnEl.style.display = "none";
+    quickSaveFromComposer(targetComposer);
+  });
+
+  // --- "✎" edit selected user preset ---
+  editPresetBtn.addEventListener("click", () => {
+    const id = presetSelect.value;
+    if (!id) return;
+    const preset = CharacterPresetStore ? CharacterPresetStore.getById(id) : null;
+    if (!preset || !preset.user) return;
+    openPresetEditor({ mode: "edit", preset });
+  });
+
+  /** Update editSituationBtn enabled state based on the selected situation. */
+  function _refreshEditSituationButtonState() {
+    const id = situationSelect.value;
+    if (!id) {
+      editSituationBtn.disabled = true;
+      return;
+    }
+    const p = SituationPresetStore ? SituationPresetStore.getById(id) : null;
+    editSituationBtn.disabled = !(p && p.user);
+  }
+
+  // --- Situation preset change handler ---
+  situationSelect.addEventListener("change", () => {
+    _refreshEditSituationButtonState();
+    const selectedId = situationSelect.value;
+    if (!selectedId) return;
+    const preset = SituationPresetStore
+      ? SituationPresetStore.getById(selectedId)
+      : null;
+    if (!preset) return;
+    const targetComposer = _resolveTargetComposer();
+    if (!targetComposer) {
+      insertWarnEl.textContent = "対象 Composer を選択してください。";
+      insertWarnEl.style.display = "";
+      // keep selection so user can still hit edit; do not reset
+      return;
+    }
+    applySituationPreset(targetComposer, preset);
+    insertWarnEl.style.display = "none";
+    // keep selection so the edit button stays enabled for the just-applied preset
+  });
+
+  // --- Situation "+" new preset ---
+  newSituationBtn.addEventListener("click", () => {
+    openSituationPresetEditor({ mode: "create" });
+  });
+
+  // --- Situation "📷" snapshot current composer ---
+  saveCurrentSituationBtn.addEventListener("click", () => {
+    const targetComposer = _resolveTargetComposer();
+    if (!targetComposer) {
+      insertWarnEl.textContent =
+        "現在の値を保存するには、まず対象 Composer を選択してください。";
+      insertWarnEl.style.display = "";
+      return;
+    }
+    insertWarnEl.style.display = "none";
+    quickSaveSituationFromComposer(targetComposer);
+  });
+
+  // --- Situation "✎" edit selected user preset ---
+  editSituationBtn.addEventListener("click", () => {
+    const id = situationSelect.value;
+    if (!id) return;
+    const preset = SituationPresetStore ? SituationPresetStore.getById(id) : null;
+    if (!preset || !preset.user) return;
+    openSituationPresetEditor({ mode: "edit", preset });
+  });
+
+  // --- Subscribe to situation preset store mutations ---
+  const unsubscribeSituationStore =
+    SituationPresetStore && typeof SituationPresetStore.subscribe === "function"
+      ? SituationPresetStore.subscribe(() => {
+          const prev = situationSelect.value;
+          rebuildSituationOptions();
+          if (prev) {
+            const opt = Array.from(situationSelect.options)
+              .find((o) => o.value === prev);
+            if (opt) situationSelect.value = prev;
+          }
+          _refreshEditSituationButtonState();
+        })
+      : null;
+
+  // --- Subscribe to character preset store mutations ---
+  const unsubscribePresetStore =
+    CharacterPresetStore && typeof CharacterPresetStore.subscribe === "function"
+      ? CharacterPresetStore.subscribe(() => {
+          const prev = presetSelect.value;
+          rebuildPresetOptions();
+          // Try to restore previous selection
+          if (prev) {
+            const opt = Array.from(presetSelect.options)
+              .find((o) => o.value === prev);
+            if (opt) presetSelect.value = prev;
+          }
+          _refreshEditButtonState();
+        })
+      : null;
 
   // Hide warning on any interaction
   composerSelect.addEventListener("change", () => {
@@ -1099,6 +1382,12 @@ export function injectTagPalettePanel(node) {
     for (const t of timers) clearInterval(t);
     searchInput.removeEventListener("input", debouncedSearch);
     searchInput.removeEventListener("keydown", onSearchKeydown);
+    if (typeof unsubscribePresetStore === "function") {
+      unsubscribePresetStore();
+    }
+    if (typeof unsubscribeSituationStore === "function") {
+      unsubscribeSituationStore();
+    }
     if (origOnRemoved) origOnRemoved();
   };
 

@@ -1,18 +1,26 @@
 """routes.py — aiohttp route handlers for anima-prompt-helper.
 
-Six endpoints:
-    GET  /anima_prompt_helper/palette            — serve merged tag palette
-    GET  /anima_prompt_helper/spec               — serve data/anima_spec.json
-    GET  /anima_prompt_helper/character_presets  — serve data/character_presets.json
-    GET  /anima_prompt_helper/artists            — serve trimmed artist suggest index
-    POST /anima_prompt_helper/validate           — run validation on supplied fields
-    GET  /anima_prompt_helper/health             — extension health/diagnostic report
+Endpoints:
+    GET    /anima_prompt_helper/palette                       — serve merged tag palette
+    GET    /anima_prompt_helper/spec                          — serve data/anima_spec.json
+    GET    /anima_prompt_helper/character_presets             — serve merged builtin+user
+                                                                character presets
+    POST   /anima_prompt_helper/user_character_presets        — create / update user preset
+    DELETE /anima_prompt_helper/user_character_presets/{id}   — delete user preset
+    GET    /anima_prompt_helper/situation_presets             — serve merged builtin+user
+                                                                situation presets
+    POST   /anima_prompt_helper/user_situation_presets        — create / update user situation
+    DELETE /anima_prompt_helper/user_situation_presets/{id}   — delete user situation
+    GET    /anima_prompt_helper/artists                       — serve trimmed artist suggest index
+    POST   /anima_prompt_helper/validate                      — run validation on supplied fields
+    GET    /anima_prompt_helper/health                        — extension health/diagnostic report
 """
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +38,9 @@ _PALETTE_PATH = _EXT_ROOT / "data" / "tag_palette.json"
 _PALETTE_EXTRAS_PATH = _EXT_ROOT / "data" / "tag_palette_extras.json"
 _SPEC_PATH = _EXT_ROOT / "data" / "anima_spec.json"
 _CHARACTER_PRESETS_PATH = _EXT_ROOT / "data" / "character_presets.json"
+_USER_CHARACTER_PRESETS_PATH = _EXT_ROOT / "data" / "user_character_presets.json"
+_SITUATION_PRESETS_PATH = _EXT_ROOT / "data" / "situation_presets.json"
+_USER_SITUATION_PRESETS_PATH = _EXT_ROOT / "data" / "user_situation_presets.json"
 _ARTISTS_SEARCH_PATH = _EXT_ROOT / "data" / "anima" / "search.json"
 _I18N_JA_PATH = _EXT_ROOT / "i18n" / "ja.json"
 
@@ -37,6 +48,9 @@ _I18N_JA_PATH = _EXT_ROOT / "i18n" / "ja.json"
 _palette_cache: dict[str, Any] | None = None
 _spec_cache: dict[str, Any] | None = None
 _character_presets_cache: dict[str, Any] | None = None
+_user_character_presets_cache: dict[str, Any] | None = None
+_situation_presets_cache: dict[str, Any] | None = None
+_user_situation_presets_cache: dict[str, Any] | None = None
 _artists_cache: list[dict[str, Any]] | None = None
 
 # Health: lazily-loaded version string cached after first read.
@@ -46,7 +60,13 @@ _version_cache: str | None = None
 _palette_lock: asyncio.Lock = asyncio.Lock()
 _spec_lock: asyncio.Lock = asyncio.Lock()
 _character_presets_lock: asyncio.Lock = asyncio.Lock()
+_user_character_presets_lock: asyncio.Lock = asyncio.Lock()
+_situation_presets_lock: asyncio.Lock = asyncio.Lock()
+_user_situation_presets_lock: asyncio.Lock = asyncio.Lock()
 _artists_lock: asyncio.Lock = asyncio.Lock()
+
+# Identifier validation pattern for user-supplied preset ids.
+_PRESET_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
 
 # Maximum accepted request body size for POST /validate (64 KB).
 _MAX_BODY_BYTES: int = 64 * 1024
@@ -110,6 +130,176 @@ def load_palette_merged() -> dict[str, Any]:
     merged_categories.sort(key=lambda c: c.get("order", 9999))
 
     return {"version": base.get("version", "1.0"), "categories": merged_categories}
+
+
+def _load_user_character_presets() -> dict[str, Any]:
+    """Load data/user_character_presets.json, returning an empty shell on failure.
+
+    Postconditions:
+        - Always returns a dict with shape ``{"version": "1.0", "presets": [...]}``.
+        - On missing file or parse error, returns ``{"version": "1.0", "presets": []}``.
+    """
+    if not _USER_CHARACTER_PRESETS_PATH.exists():
+        return {"version": "1.0", "presets": []}
+    try:
+        data = _load_json_file(_USER_CHARACTER_PRESETS_PATH)
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning(
+            "user_character_presets.json parse error, treating as empty: %s", exc
+        )
+        return {"version": "1.0", "presets": []}
+    if not isinstance(data, dict):
+        return {"version": "1.0", "presets": []}
+    presets = data.get("presets")
+    if not isinstance(presets, list):
+        presets = []
+    return {"version": str(data.get("version", "1.0")), "presets": presets}
+
+
+def _save_user_character_presets(data: dict[str, Any]) -> None:
+    """Atomically write user_character_presets.json.
+
+    Preconditions:
+        - ``data`` is a serializable dict with ``presets`` list.
+    Postconditions:
+        - File is written atomically (temp + replace).
+    Raises:
+        OSError on filesystem error.
+    """
+    tmp_path = _USER_CHARACTER_PRESETS_PATH.with_suffix(".json.tmp")
+    with tmp_path.open("w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+    tmp_path.replace(_USER_CHARACTER_PRESETS_PATH)
+
+
+def _sanitize_preset_payload(raw: Any) -> dict[str, Any] | None:
+    """Validate and normalize a preset dict from the client.
+
+    Returns the sanitized preset dict, or ``None`` if invalid.
+
+    Required fields: id (str matching _PRESET_ID_RE), label (str)
+    Optional fields: character, series, essential_general_tags (list[str]),
+                     recommended_artists (list[str]), notes, tier (int).
+    """
+    if not isinstance(raw, dict):
+        return None
+    pid = raw.get("id")
+    if not isinstance(pid, str) or not _PRESET_ID_RE.match(pid):
+        return None
+    label = raw.get("label")
+    if not isinstance(label, str) or not label.strip():
+        return None
+
+    def _str(v: Any) -> str:
+        return v if isinstance(v, str) else ""
+
+    def _str_list(v: Any) -> list[str]:
+        if not isinstance(v, list):
+            return []
+        return [s.strip() for s in v if isinstance(s, str) and s.strip()]
+
+    tier_raw = raw.get("tier", 3)
+    try:
+        tier = int(tier_raw)
+    except (TypeError, ValueError):
+        tier = 3
+    tier = max(1, min(5, tier))
+
+    return {
+        "id": pid,
+        "label": label.strip()[:120],
+        "character": _str(raw.get("character"))[:512],
+        "series": _str(raw.get("series"))[:512],
+        "essential_general_tags": _str_list(raw.get("essential_general_tags"))[:64],
+        "recommended_artists": _str_list(raw.get("recommended_artists"))[:32],
+        "notes": _str(raw.get("notes"))[:1024],
+        "tier": tier,
+        "user": True,
+    }
+
+
+def _load_user_situation_presets() -> dict[str, Any]:
+    """Load data/user_situation_presets.json, returning an empty shell on failure.
+
+    Postconditions:
+        - Always returns a dict with shape ``{"version": "1.0", "presets": [...]}``.
+        - On missing file or parse error, returns ``{"version": "1.0", "presets": []}``.
+    """
+    if not _USER_SITUATION_PRESETS_PATH.exists():
+        return {"version": "1.0", "presets": []}
+    try:
+        data = _load_json_file(_USER_SITUATION_PRESETS_PATH)
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning(
+            "user_situation_presets.json parse error, treating as empty: %s", exc
+        )
+        return {"version": "1.0", "presets": []}
+    if not isinstance(data, dict):
+        return {"version": "1.0", "presets": []}
+    presets = data.get("presets")
+    if not isinstance(presets, list):
+        presets = []
+    return {"version": str(data.get("version", "1.0")), "presets": presets}
+
+
+def _save_user_situation_presets(data: dict[str, Any]) -> None:
+    """Atomically write user_situation_presets.json."""
+    tmp_path = _USER_SITUATION_PRESETS_PATH.with_suffix(".json.tmp")
+    with tmp_path.open("w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+    tmp_path.replace(_USER_SITUATION_PRESETS_PATH)
+
+
+def _sanitize_situation_payload(raw: Any) -> dict[str, Any] | None:
+    """Validate and normalize a situation preset dict from the client.
+
+    Returns the sanitized dict, or ``None`` if invalid.
+
+    Required: id (str matching _PRESET_ID_RE), label (str non-empty).
+    Optional: category, count_override, general_tags (list[str]),
+              natural_language, notes, tier (int).
+    """
+    if not isinstance(raw, dict):
+        return None
+    pid = raw.get("id")
+    if not isinstance(pid, str) or not _PRESET_ID_RE.match(pid):
+        return None
+    label = raw.get("label")
+    if not isinstance(label, str) or not label.strip():
+        return None
+
+    def _str(v: Any) -> str:
+        return v if isinstance(v, str) else ""
+
+    def _str_list(v: Any) -> list[str]:
+        if not isinstance(v, list):
+            return []
+        return [s.strip() for s in v if isinstance(s, str) and s.strip()]
+
+    tier_raw = raw.get("tier", 3)
+    try:
+        tier = int(tier_raw)
+    except (TypeError, ValueError):
+        tier = 3
+    tier = max(1, min(5, tier))
+
+    category = _str(raw.get("category")).strip().lower()[:32]
+    if not category:
+        category = "custom"
+
+    count_override = _str(raw.get("count_override")).strip()[:128]
+
+    return {
+        "id": pid,
+        "label": label.strip()[:120],
+        "category": category,
+        "count_override": count_override if count_override else None,
+        "general_tags": _str_list(raw.get("general_tags"))[:64],
+        "natural_language": _str(raw.get("natural_language")).strip()[:2048],
+        "notes": _str(raw.get("notes"))[:1024],
+        "tier": tier,
+        "user": True,
+    }
 
 
 def load_artists_index() -> list[dict[str, Any]]:
@@ -207,6 +397,9 @@ def build_health_payload() -> dict[str, Any]:
         "tag_palette_extras.json": _file_info(_PALETTE_EXTRAS_PATH, False),
         "anima_spec.json": _file_info(_SPEC_PATH, _spec_cache is not None),
         "character_presets.json": _file_info(_CHARACTER_PRESETS_PATH, _character_presets_cache is not None),
+        "user_character_presets.json": _file_info(_USER_CHARACTER_PRESETS_PATH, _user_character_presets_cache is not None),
+        "situation_presets.json": _file_info(_SITUATION_PRESETS_PATH, _situation_presets_cache is not None),
+        "user_situation_presets.json": _file_info(_USER_SITUATION_PRESETS_PATH, _user_situation_presets_cache is not None),
         "anima/search.json": _file_info(_ARTISTS_SEARCH_PATH, _artists_cache is not None),
         "i18n/ja.json": _file_info(_I18N_JA_PATH, False),
     }
@@ -241,6 +434,11 @@ def build_health_payload() -> dict[str, Any]:
         "/anima_prompt_helper/palette",
         "/anima_prompt_helper/spec",
         "/anima_prompt_helper/character_presets",
+        "/anima_prompt_helper/user_character_presets",
+        "/anima_prompt_helper/user_character_presets/{id}",
+        "/anima_prompt_helper/situation_presets",
+        "/anima_prompt_helper/user_situation_presets",
+        "/anima_prompt_helper/user_situation_presets/{id}",
         "/anima_prompt_helper/artists",
         "/anima_prompt_helper/validate",
         "/anima_prompt_helper/health",
@@ -260,15 +458,17 @@ def build_health_payload() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def register(routes: web.RouteTableDef) -> None:
-    """Attach all six route handlers to *routes*.
+    """Attach the route handlers to *routes*.
 
     Preconditions:
         - ``routes`` is an ``aiohttp.web.RouteTableDef``.
     Postconditions:
-        - Six routes are registered: palette, spec, character_presets,
-          artists, validate, health.
+        - GET routes: palette, spec, character_presets, situation_presets,
+          artists, health.
+        - POST routes: validate, user_character_presets.
+        - DELETE routes: user_character_presets/{preset_id}.
     Invariants:
-        - Handlers are idempotent read-only operations.
+        - GET handlers are idempotent read-only operations.
     """
 
     @routes.get("/anima_prompt_helper/palette")
@@ -323,14 +523,17 @@ def register(routes: web.RouteTableDef) -> None:
 
     @routes.get("/anima_prompt_helper/character_presets")
     async def get_character_presets(request: web.Request) -> web.Response:
-        """Serve the character preset list verbatim.
+        """Serve the character presets, merging builtin + user files.
+
+        Builtin presets get ``"user": False``; user presets get ``"user": True``.
+        User presets override builtin entries with the same id.
 
         Returns:
-            200 with character_presets JSON ({version, presets:[...]}),
-            503 if file missing,
+            200 with {"version", "presets": [...]},
+            503 if builtin file missing,
             500 on parse error.
         """
-        global _character_presets_cache
+        global _character_presets_cache, _user_character_presets_cache
         async with _character_presets_lock:
             if _character_presets_cache is None:
                 if not _CHARACTER_PRESETS_PATH.exists():
@@ -348,7 +551,278 @@ def register(routes: web.RouteTableDef) -> None:
                     return web.json_response(
                         {"error": "character_presets_parse_error"}, status=500
                     )
-        return web.json_response(_character_presets_cache)
+
+        async with _user_character_presets_lock:
+            if _user_character_presets_cache is None:
+                _user_character_presets_cache = _load_user_character_presets()
+
+        builtin_presets = list(_character_presets_cache.get("presets", []))
+        user_presets = list(_user_character_presets_cache.get("presets", []))
+
+        # Tag builtin entries and merge: user presets override by id.
+        by_id: dict[str, dict[str, Any]] = {}
+        for p in builtin_presets:
+            if isinstance(p, dict) and isinstance(p.get("id"), str):
+                tagged = dict(p)
+                tagged.setdefault("user", False)
+                by_id[p["id"]] = tagged
+        for p in user_presets:
+            if isinstance(p, dict) and isinstance(p.get("id"), str):
+                tagged = dict(p)
+                tagged["user"] = True
+                by_id[p["id"]] = tagged
+
+        merged = list(by_id.values())
+        return web.json_response({
+            "version": _character_presets_cache.get("version", "1.0"),
+            "presets": merged,
+        })
+
+    @routes.post("/anima_prompt_helper/user_character_presets")
+    async def post_user_character_preset(request: web.Request) -> web.Response:
+        """Create or update a user character preset (upsert by id).
+
+        Request body (JSON, max 32 KB):
+            {"preset": {"id": "...", "label": "...", "character": "...", ...}}
+
+        Returns:
+            200 with the saved preset (sanitized) on success,
+            400 on invalid body, oversized body, or invalid preset.
+        """
+        global _user_character_presets_cache
+
+        content_type = request.headers.get("Content-Type", "")
+        if "application/json" not in content_type:
+            return web.json_response({"error": "invalid_request"}, status=400)
+
+        try:
+            raw_bytes = await request.read()
+        except Exception as exc:
+            logger.warning("user_character_presets: read failed: %s", exc)
+            return web.json_response({"error": "invalid_request"}, status=400)
+
+        if len(raw_bytes) > 32 * 1024:
+            return web.json_response({"error": "body_too_large"}, status=400)
+
+        try:
+            body = json.loads(raw_bytes)
+        except json.JSONDecodeError:
+            return web.json_response({"error": "invalid_json"}, status=400)
+
+        if not isinstance(body, dict) or "preset" not in body:
+            return web.json_response({"error": "invalid_request"}, status=400)
+
+        sanitized = _sanitize_preset_payload(body["preset"])
+        if sanitized is None:
+            return web.json_response({"error": "invalid_preset"}, status=400)
+
+        async with _user_character_presets_lock:
+            data = _load_user_character_presets()
+            presets = data.get("presets", [])
+            updated = False
+            for i, existing in enumerate(presets):
+                if isinstance(existing, dict) and existing.get("id") == sanitized["id"]:
+                    presets[i] = sanitized
+                    updated = True
+                    break
+            if not updated:
+                presets.append(sanitized)
+            data["presets"] = presets
+
+            try:
+                _save_user_character_presets(data)
+            except OSError as exc:
+                logger.error("Failed to save user_character_presets.json: %s", exc)
+                return web.json_response({"error": "save_failed"}, status=500)
+
+            _user_character_presets_cache = data
+
+        return web.json_response({"preset": sanitized, "updated": updated})
+
+    @routes.delete("/anima_prompt_helper/user_character_presets/{preset_id}")
+    async def delete_user_character_preset(request: web.Request) -> web.Response:
+        """Delete a user character preset by id.
+
+        Returns:
+            200 on success ({"deleted": true, "id": ...}),
+            400 if id is malformed,
+            404 if not found.
+        """
+        global _user_character_presets_cache
+        preset_id = request.match_info.get("preset_id", "")
+        if not _PRESET_ID_RE.match(preset_id):
+            return web.json_response({"error": "invalid_id"}, status=400)
+
+        async with _user_character_presets_lock:
+            data = _load_user_character_presets()
+            presets = data.get("presets", [])
+            new_presets = [
+                p for p in presets
+                if not (isinstance(p, dict) and p.get("id") == preset_id)
+            ]
+            if len(new_presets) == len(presets):
+                return web.json_response({"error": "not_found"}, status=404)
+            data["presets"] = new_presets
+            try:
+                _save_user_character_presets(data)
+            except OSError as exc:
+                logger.error("Failed to save user_character_presets.json: %s", exc)
+                return web.json_response({"error": "save_failed"}, status=500)
+            _user_character_presets_cache = data
+
+        return web.json_response({"deleted": True, "id": preset_id})
+
+    @routes.get("/anima_prompt_helper/situation_presets")
+    async def get_situation_presets(request: web.Request) -> web.Response:
+        """Serve the situation presets, merging builtin + user files.
+
+        Builtin presets get ``"user": False``; user presets get ``"user": True``.
+        User presets override builtin entries with the same id.
+
+        Returns:
+            200 with {"version", "presets": [...]},
+            503 if builtin file missing,
+            500 on parse error.
+        """
+        global _situation_presets_cache, _user_situation_presets_cache
+        async with _situation_presets_lock:
+            if _situation_presets_cache is None:
+                if not _SITUATION_PRESETS_PATH.exists():
+                    logger.warning(
+                        "situation_presets.json not found at %s",
+                        _SITUATION_PRESETS_PATH,
+                    )
+                    return web.json_response(
+                        {"error": "situation_presets_not_found"}, status=503
+                    )
+                try:
+                    _situation_presets_cache = _load_json_file(_SITUATION_PRESETS_PATH)
+                except json.JSONDecodeError as exc:
+                    logger.error("Failed to parse situation_presets.json: %s", exc)
+                    return web.json_response(
+                        {"error": "situation_presets_parse_error"}, status=500
+                    )
+
+        async with _user_situation_presets_lock:
+            if _user_situation_presets_cache is None:
+                _user_situation_presets_cache = _load_user_situation_presets()
+
+        builtin_presets = list(_situation_presets_cache.get("presets", []))
+        user_presets = list(_user_situation_presets_cache.get("presets", []))
+
+        by_id: dict[str, dict[str, Any]] = {}
+        for p in builtin_presets:
+            if isinstance(p, dict) and isinstance(p.get("id"), str):
+                tagged = dict(p)
+                tagged.setdefault("user", False)
+                by_id[p["id"]] = tagged
+        for p in user_presets:
+            if isinstance(p, dict) and isinstance(p.get("id"), str):
+                tagged = dict(p)
+                tagged["user"] = True
+                by_id[p["id"]] = tagged
+
+        merged = list(by_id.values())
+        return web.json_response({
+            "version": _situation_presets_cache.get("version", "1.0"),
+            "presets": merged,
+        })
+
+    @routes.post("/anima_prompt_helper/user_situation_presets")
+    async def post_user_situation_preset(request: web.Request) -> web.Response:
+        """Create or update a user situation preset (upsert by id).
+
+        Request body (JSON, max 32 KB):
+            {"preset": {"id": "...", "label": "...", "category": "...",
+                        "count_override": ..., "general_tags": [...],
+                        "natural_language": "...", "notes": "...", "tier": N}}
+
+        Returns:
+            200 with the saved preset,
+            400 on invalid body / oversized body / invalid preset.
+        """
+        global _user_situation_presets_cache
+
+        content_type = request.headers.get("Content-Type", "")
+        if "application/json" not in content_type:
+            return web.json_response({"error": "invalid_request"}, status=400)
+
+        try:
+            raw_bytes = await request.read()
+        except Exception as exc:
+            logger.warning("user_situation_presets: read failed: %s", exc)
+            return web.json_response({"error": "invalid_request"}, status=400)
+
+        if len(raw_bytes) > 32 * 1024:
+            return web.json_response({"error": "body_too_large"}, status=400)
+
+        try:
+            body = json.loads(raw_bytes)
+        except json.JSONDecodeError:
+            return web.json_response({"error": "invalid_json"}, status=400)
+
+        if not isinstance(body, dict) or "preset" not in body:
+            return web.json_response({"error": "invalid_request"}, status=400)
+
+        sanitized = _sanitize_situation_payload(body["preset"])
+        if sanitized is None:
+            return web.json_response({"error": "invalid_preset"}, status=400)
+
+        async with _user_situation_presets_lock:
+            data = _load_user_situation_presets()
+            presets = data.get("presets", [])
+            updated = False
+            for i, existing in enumerate(presets):
+                if isinstance(existing, dict) and existing.get("id") == sanitized["id"]:
+                    presets[i] = sanitized
+                    updated = True
+                    break
+            if not updated:
+                presets.append(sanitized)
+            data["presets"] = presets
+
+            try:
+                _save_user_situation_presets(data)
+            except OSError as exc:
+                logger.error("Failed to save user_situation_presets.json: %s", exc)
+                return web.json_response({"error": "save_failed"}, status=500)
+
+            _user_situation_presets_cache = data
+
+        return web.json_response({"preset": sanitized, "updated": updated})
+
+    @routes.delete("/anima_prompt_helper/user_situation_presets/{preset_id}")
+    async def delete_user_situation_preset(request: web.Request) -> web.Response:
+        """Delete a user situation preset by id.
+
+        Returns:
+            200 on success,
+            400 if id malformed,
+            404 if not found.
+        """
+        global _user_situation_presets_cache
+        preset_id = request.match_info.get("preset_id", "")
+        if not _PRESET_ID_RE.match(preset_id):
+            return web.json_response({"error": "invalid_id"}, status=400)
+
+        async with _user_situation_presets_lock:
+            data = _load_user_situation_presets()
+            presets = data.get("presets", [])
+            new_presets = [
+                p for p in presets
+                if not (isinstance(p, dict) and p.get("id") == preset_id)
+            ]
+            if len(new_presets) == len(presets):
+                return web.json_response({"error": "not_found"}, status=404)
+            data["presets"] = new_presets
+            try:
+                _save_user_situation_presets(data)
+            except OSError as exc:
+                logger.error("Failed to save user_situation_presets.json: %s", exc)
+                return web.json_response({"error": "save_failed"}, status=500)
+            _user_situation_presets_cache = data
+
+        return web.json_response({"deleted": True, "id": preset_id})
 
     @routes.get("/anima_prompt_helper/artists")
     async def get_artists(request: web.Request) -> web.Response:
@@ -484,6 +958,11 @@ def register(routes: web.RouteTableDef) -> None:
                     "/anima_prompt_helper/palette",
                     "/anima_prompt_helper/spec",
                     "/anima_prompt_helper/character_presets",
+                    "/anima_prompt_helper/user_character_presets",
+                    "/anima_prompt_helper/user_character_presets/{id}",
+                    "/anima_prompt_helper/situation_presets",
+                    "/anima_prompt_helper/user_situation_presets",
+                    "/anima_prompt_helper/user_situation_presets/{id}",
                     "/anima_prompt_helper/artists",
                     "/anima_prompt_helper/validate",
                     "/anima_prompt_helper/health",
