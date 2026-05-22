@@ -1,0 +1,94 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: pip install pytest aiohttp
+
+      - name: Run pytest
+        run: python -m pytest tests -v
+
+      - name: Run data integrity check
+        run: python scripts/check_data_integrity.py
+
+      - name: Validate JSON files
+        run: |
+          find data i18n templates -name '*.json' 2>/dev/null | \
+          xargs -I {} python -c "import json,sys; json.load(open(sys.argv[1], encoding='utf-8'))" {}
+
+      - name: Validate workflow JSON node IDs
+        run: |
+          python - <<'EOF'
+          import json, sys, pathlib, re
+
+          workflow_files = list(pathlib.Path(".").rglob("data/anima_workflow_*.json"))
+          if not workflow_files:
+              print("No workflow JSON files found — skipping node-id validation")
+              sys.exit(0)
+
+          errors = []
+          for wf_path in workflow_files:
+              try:
+                  data = json.loads(wf_path.read_text(encoding="utf-8"))
+              except json.JSONDecodeError as exc:
+                  errors.append(f"{wf_path}: JSON parse error: {exc}")
+                  continue
+
+              nodes = data.get("nodes", [])
+              node_ids = {n["id"] for n in nodes if "id" in n}
+              links = data.get("links", [])
+
+              for link in links:
+                  # ComfyUI link format: [link_id, src_node_id, src_slot, dst_node_id, dst_slot, type]
+                  if len(link) < 5:
+                      continue
+                  src_node_id = link[1]
+                  dst_node_id = link[3]
+                  if src_node_id not in node_ids:
+                      errors.append(f"{wf_path}: link {link[0]} references missing src node {src_node_id}")
+                  if dst_node_id not in node_ids:
+                      errors.append(f"{wf_path}: link {link[0]} references missing dst node {dst_node_id}")
+
+          if errors:
+              for e in errors:
+                  print(f"ERROR: {e}", file=sys.stderr)
+              sys.exit(1)
+          print(f"OK: validated {len(workflow_files)} workflow file(s)")
+          EOF
+
+  lint:
+    name: Lint (py_compile)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile all Python files
+        run: |
+          find . -name '*.py' \
+            -not -path './.venv*' \
+            -not -path './.git/*' \
+            -not -path './node_modules/*' \
+            | xargs -I {} python -m py_compile {}
+          echo "All Python files compiled successfully"

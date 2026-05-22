@@ -1,0 +1,312 @@
+{
+  "id": "ooo-anima-highquality-v1",
+  "revision": 0,
+  "last_node_id": 13,
+  "last_link_id": 17,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "VAELoader",
+      "pos": [20, 160],
+      "size": [270, 58],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {"name": "VAE", "type": "VAE", "links": [1]}
+      ],
+      "properties": {"cnr_id": "comfy-core", "Node name for S&R": "VAELoader"},
+      "widgets_values": ["qwen_image_vae.safetensors"]
+    },
+    {
+      "id": 2,
+      "type": "CLIPLoader",
+      "pos": [20, 260],
+      "size": [270, 106],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {"name": "CLIP", "type": "CLIP", "links": [2, 10]}
+      ],
+      "properties": {"cnr_id": "comfy-core", "Node name for S&R": "CLIPLoader"},
+      "widgets_values": ["qwen_3_06b_base.safetensors", "stable_diffusion", "default"]
+    },
+    {
+      "id": 3,
+      "type": "UNETLoader",
+      "pos": [20, 420],
+      "size": [270, 82],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {"name": "MODEL", "type": "MODEL", "links": [3, 14]}
+      ],
+      "properties": {"cnr_id": "comfy-core", "Node name for S&R": "UNETLoader"},
+      "widgets_values": ["OOO_Anima_v10.safetensors", "default"]
+    },
+    {
+      "id": 4,
+      "type": "AnimaPromptComposer",
+      "pos": [340, 160],
+      "size": [420, 520],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {"name": "positive_prompt", "type": "STRING", "links": [4]}
+      ],
+      "title": "Anima Prompt Composer",
+      "properties": {"cnr_id": "anima-prompt-helper", "Node name for S&R": "AnimaPromptComposer"},
+      "widgets_values": [
+        "masterpiece, best quality, high quality",
+        "newest, year 2025, year 2024",
+        "safe",
+        "1girl, solo",
+        "miku",
+        "vocaloid",
+        "",
+        "long hair, blue eyes, smile, twin tails, school uniform, outdoors, cherry blossoms",
+        "",
+        "ooo_anima_default"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "AnimaPromptToConditioning",
+      "pos": [820, 160],
+      "size": [270, 82],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {"name": "positive_prompt", "type": "STRING", "link": 4},
+        {"name": "clip", "type": "CLIP", "link": 2}
+      ],
+      "outputs": [
+        {"name": "conditioning", "type": "CONDITIONING", "links": [5, 15]},
+        {"name": "positive_prompt", "type": "STRING", "links": null}
+      ],
+      "title": "Anima → Conditioning",
+      "properties": {"cnr_id": "anima-prompt-helper", "Node name for S&R": "AnimaPromptToConditioning"},
+      "widgets_values": []
+    },
+    {
+      "id": 6,
+      "type": "CLIPTextEncode",
+      "pos": [340, 730],
+      "size": [420, 140],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {"name": "clip", "type": "CLIP", "link": 10}
+      ],
+      "outputs": [
+        {"name": "CONDITIONING", "type": "CONDITIONING", "links": [6, 16]}
+      ],
+      "title": "Negative Prompt",
+      "properties": {"cnr_id": "comfy-core", "Node name for S&R": "CLIPTextEncode"},
+      "widgets_values": ["worst quality, low quality, score_1, score_2, score_3, artifacts, early, old, nsfw, realistic, blurry, jpeg artifacts, sepia, artist name, watermark, signature, text"]
+    },
+    {
+      "id": 7,
+      "type": "EmptyLatentImage",
+      "pos": [820, 560],
+      "size": [270, 106],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {"name": "LATENT", "type": "LATENT", "links": [7]}
+      ],
+      "properties": {"cnr_id": "comfy-core", "Node name for S&R": "EmptyLatentImage"},
+      "widgets_values": [1024, 1024, 1]
+    },
+    {
+      "id": 8,
+      "type": "KSampler",
+      "pos": [1150, 160],
+      "size": [297, 266],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {"name": "model", "type": "MODEL", "link": 3},
+        {"name": "positive", "type": "CONDITIONING", "link": 5},
+        {"name": "negative", "type": "CONDITIONING", "link": 6},
+        {"name": "latent_image", "type": "LATENT", "link": 7}
+      ],
+      "outputs": [
+        {"name": "LATENT", "type": "LATENT", "slot_index": 0, "links": [8]}
+      ],
+      "title": "KSampler (Pass 1 — Base)",
+      "properties": {"cnr_id": "comfy-core", "Node name for S&R": "KSampler"},
+      "widgets_values": [0, "randomize", 40, 4.5, "euler_ancestral", "simple", 1.0],
+      "widget_idx_map": {"seed": 0, "sampler_name": 4, "scheduler": 5}
+    },
+    {
+      "id": 9,
+      "type": "LatentUpscaleBy",
+      "pos": [1500, 160],
+      "size": [270, 106],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {"name": "samples", "type": "LATENT", "link": 8}
+      ],
+      "outputs": [
+        {"name": "LATENT", "type": "LATENT", "slot_index": 0, "links": [9]}
+      ],
+      "properties": {"cnr_id": "comfy-core", "Node name for S&R": "LatentUpscaleBy"},
+      "widgets_values": ["nearest-exact", 1.5]
+    },
+    {
+      "id": 10,
+      "type": "KSampler",
+      "pos": [1820, 160],
+      "size": [297, 266],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {"name": "model", "type": "MODEL", "link": 14},
+        {"name": "positive", "type": "CONDITIONING", "link": 15},
+        {"name": "negative", "type": "CONDITIONING", "link": 16},
+        {"name": "latent_image", "type": "LATENT", "link": 9}
+      ],
+      "outputs": [
+        {"name": "LATENT", "type": "LATENT", "slot_index": 0, "links": [11]}
+      ],
+      "title": "KSampler (Pass 2 — Hires Refine)",
+      "properties": {"cnr_id": "comfy-core", "Node name for S&R": "KSampler"},
+      "widgets_values": [0, "randomize", 20, 4.5, "euler_ancestral", "simple", 0.55],
+      "widget_idx_map": {"seed": 0, "sampler_name": 4, "scheduler": 5}
+    },
+    {
+      "id": 11,
+      "type": "VAEDecode",
+      "pos": [2170, 160],
+      "size": [210, 46],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {"name": "samples", "type": "LATENT", "link": 11},
+        {"name": "vae", "type": "VAE", "link": 1}
+      ],
+      "outputs": [
+        {"name": "IMAGE", "type": "IMAGE", "slot_index": 0, "links": [13, 17]}
+      ],
+      "properties": {"cnr_id": "comfy-core", "Node name for S&R": "VAEDecode"},
+      "widgets_values": []
+    },
+    {
+      "id": 12,
+      "type": "PreviewImage",
+      "pos": [2430, 160],
+      "size": [519, 612],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {"name": "images", "type": "IMAGE", "link": 13}
+      ],
+      "outputs": [],
+      "properties": {"cnr_id": "comfy-core", "Node name for S&R": "PreviewImage"},
+      "widgets_values": []
+    },
+    {
+      "id": 13,
+      "type": "SaveImage",
+      "pos": [3000, 160],
+      "size": [400, 450],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {"name": "images", "type": "IMAGE", "link": 17}
+      ],
+      "outputs": [],
+      "properties": {"cnr_id": "comfy-core", "Node name for S&R": "SaveImage"},
+      "widgets_values": ["OOO_Anima_highquality/"]
+    }
+  ],
+  "links": [
+    [1, 1, 0, 11, 1, "VAE"],
+    [2, 2, 0, 5, 1, "CLIP"],
+    [3, 3, 0, 8, 0, "MODEL"],
+    [4, 4, 0, 5, 0, "STRING"],
+    [5, 5, 0, 8, 1, "CONDITIONING"],
+    [6, 6, 0, 8, 2, "CONDITIONING"],
+    [7, 7, 0, 8, 3, "LATENT"],
+    [8, 8, 0, 9, 0, "LATENT"],
+    [9, 9, 0, 10, 3, "LATENT"],
+    [10, 2, 0, 6, 0, "CLIP"],
+    [11, 10, 0, 11, 0, "LATENT"],
+    [13, 11, 0, 12, 0, "IMAGE"],
+    [14, 3, 0, 10, 0, "MODEL"],
+    [15, 5, 0, 10, 1, "CONDITIONING"],
+    [16, 6, 0, 10, 2, "CONDITIONING"],
+    [17, 11, 0, 13, 0, "IMAGE"]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "Loaders",
+      "bounding": [10, 100, 295, 430],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "Anima Composer",
+      "bounding": [330, 100, 450, 720],
+      "color": "#7a5c99",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "Sampling — Pass 1 (Base 1024×1024)",
+      "bounding": [810, 100, 990, 600],
+      "color": "#a1309b",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "Sampling — Pass 2 (Hires 1.5×)",
+      "bounding": [1490, 100, 690, 440],
+      "color": "#8b6914",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 5,
+      "title": "Output",
+      "bounding": [2160, 100, 1270, 720],
+      "color": "#629e3f",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {"scale": 0.6, "offset": [0, 0]},
+    "frontendVersion": "1.37.11"
+  },
+  "version": 0.4,
+  "widget_idx_map": {
+    "8": {"seed": 0, "sampler_name": 4, "scheduler": 5},
+    "10": {"seed": 0, "sampler_name": 4, "scheduler": 5}
+  }
+}

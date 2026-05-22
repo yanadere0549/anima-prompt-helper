@@ -1,0 +1,8 @@
+include README.md
+include LICENSE
+include CHANGELOG.md
+include USAGE.md
+recursive-include data *.json
+recursive-include i18n *.json
+recursive-include templates *.json
+recursive-include web *

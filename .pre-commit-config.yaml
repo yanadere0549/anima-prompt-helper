@@ -1,0 +1,47 @@
+# Pre-commit hooks for anima-prompt-helper
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=512']
+      - id: end-of-file-fixer
+        exclude: '\.svg$'
+      - id: trailing-whitespace
+        exclude: '\.md$'
+      - id: check-toml
+
+  - repo: local
+    hooks:
+      - id: py-compile
+        name: Python syntax check (py_compile)
+        entry: python -m py_compile
+        language: system
+        types: [python]
+        pass_filenames: true
+
+      - id: data-integrity
+        name: Data integrity check
+        entry: python scripts/check_data_integrity.py
+        language: system
+        pass_filenames: false
+        files: '^(data/.*\.json|i18n/.*\.json)$'
+
+      - id: pytest-fast
+        name: pytest (fast subset)
+        entry: python -m pytest tests -q --tb=line -x
+        language: system
+        pass_filenames: false
+        files: '^(python/.*\.py|tests/.*\.py)$'
+
+      - id: node-check
+        name: Node syntax check (node --check)
+        entry: bash -c 'for f in "$@"; do node --check "$f" || exit 1; done' --
+        language: system
+        types: [javascript]
+        pass_filenames: true

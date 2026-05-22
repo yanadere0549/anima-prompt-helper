@@ -1,0 +1,154 @@
+{
+  "cases": [
+    {
+      "name": "empty all none preset",
+      "fields": {"quality":"","year":"","rating":"","count":"","character":"","series":"","artist":"","general":"","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "empty all ooo_anima preset",
+      "fields": {"quality":"","year":"","rating":"safe","count":"","character":"","series":"","artist":"","general":"","natural_language":""},
+      "preset": "ooo_anima_default"
+    },
+    {
+      "name": "full prompt no preset",
+      "fields": {
+        "quality": "masterpiece, best quality",
+        "year": "newest, year 2025",
+        "rating": "safe",
+        "count": "1girl, solo",
+        "character": "hatsune miku",
+        "series": "vocaloid",
+        "artist": "@wlop",
+        "general": "long hair, blue eyes, smile, school uniform",
+        "natural_language": "She is standing in a sunlit park."
+      },
+      "preset": "none"
+    },
+    {
+      "name": "full prompt ooo_anima preset",
+      "fields": {
+        "quality": "masterpiece, best quality",
+        "year": "newest, year 2025",
+        "rating": "safe",
+        "count": "1girl, solo",
+        "character": "hatsune miku",
+        "series": "vocaloid",
+        "artist": "@wlop",
+        "general": "long hair, blue eyes, smile, school uniform",
+        "natural_language": "She is standing in a sunlit park."
+      },
+      "preset": "ooo_anima_default"
+    },
+    {
+      "name": "only quality",
+      "fields": {"quality":"masterpiece, best quality","year":"","rating":"","count":"","character":"","series":"","artist":"","general":"","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "only year",
+      "fields": {"quality":"","year":"newest, year 2025","rating":"","count":"","character":"","series":"","artist":"","general":"","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "only rating safe",
+      "fields": {"quality":"","year":"","rating":"safe","count":"","character":"","series":"","artist":"","general":"","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "only count",
+      "fields": {"quality":"","year":"","rating":"","count":"1girl, solo","character":"","series":"","artist":"","general":"","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "only character",
+      "fields": {"quality":"","year":"","rating":"","count":"","character":"hatsune miku","series":"","artist":"","general":"","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "only series",
+      "fields": {"quality":"","year":"","rating":"","count":"","character":"","series":"vocaloid","artist":"","general":"","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "only artist",
+      "fields": {"quality":"","year":"","rating":"","count":"","character":"","series":"","artist":"@wlop","general":"","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "only general",
+      "fields": {"quality":"","year":"","rating":"","count":"","character":"","series":"","artist":"","general":"long hair, blue eyes","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "only natural_language",
+      "fields": {"quality":"","year":"","rating":"","count":"","character":"","series":"","artist":"","general":"","natural_language":"She is standing in a sunlit park."},
+      "preset": "none"
+    },
+    {
+      "name": "comma-only field collapses to empty",
+      "fields": {"quality":",,,","year":"","rating":"","count":"","character":"","series":"","artist":"","general":"","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "whitespace-only field",
+      "fields": {"quality":"   ","year":"","rating":"","count":"","character":"","series":"","artist":"","general":"","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "unicode Japanese tags",
+      "fields": {"quality":"高品質","year":"","rating":"safe","count":"1girl","character":"初音ミク","series":"ボーカロイド","artist":"@画家","general":"長い髪","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "unicode emoji",
+      "fields": {"quality":"","year":"","rating":"","count":"","character":"","series":"","artist":"","general":"smile ❤️, happy 😊","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "trailing and leading whitespace in tokens",
+      "fields": {"quality":"  masterpiece  ,  best quality  ","year":"","rating":"","count":"","character":"","series":"","artist":"","general":"","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "multiple commas in a row",
+      "fields": {"quality":"masterpiece,,,,best quality","year":"","rating":"","count":"","character":"","series":"","artist":"","general":"","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "long prompt over 1000 chars",
+      "fields": {
+        "quality": "masterpiece, best quality, high quality, ultra detailed, extremely detailed",
+        "year": "newest, year 2025, year 2024, year 2023",
+        "rating": "safe",
+        "count": "1girl, solo, standing",
+        "character": "hatsune miku, long twintails, teal hair, teal eyes",
+        "series": "vocaloid, music, concert stage",
+        "artist": "@wlop, @kantoku, @lack",
+        "general": "long hair, blue eyes, smile, school uniform, white shirt, pleated skirt, ribbon, bow, thighhighs, zettai ryouiki, looking at viewer, upper body, portrait, soft lighting, natural light, bokeh, depth of field, detailed background, cherry blossoms, spring, outdoor, park, bench, sitting, casual pose",
+        "natural_language": "She is standing in a sunlit park with cherry blossoms falling gently around her. The warm afternoon light casts soft shadows on the ground while she gazes into the distance with a serene smile."
+      },
+      "preset": "none"
+    },
+    {
+      "name": "ooo_anima preset with rating matching preset safe",
+      "fields": {"quality":"","year":"","rating":"safe","count":"2girls","character":"","series":"","artist":"","general":"","natural_language":""},
+      "preset": "ooo_anima_default"
+    },
+    {
+      "name": "natural_language with commas not split",
+      "fields": {"quality":"","year":"","rating":"","count":"","character":"","series":"","artist":"","general":"","natural_language":"A girl, standing alone, gazes at the horizon."},
+      "preset": "none"
+    },
+    {
+      "name": "rating explicit no preset",
+      "fields": {"quality":"best quality","year":"","rating":"explicit","count":"","character":"","series":"","artist":"","general":"","natural_language":""},
+      "preset": "none"
+    },
+    {
+      "name": "ooo_anima preset quality and year overridden by preset rating safe",
+      "fields": {"quality":"user quality","year":"user year","rating":"safe","count":"1boy","character":"","series":"","artist":"","general":"","natural_language":""},
+      "preset": "ooo_anima_default"
+    }
+  ]
+}

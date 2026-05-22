@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "anima-prompt-helper"
+version = "0.5.0"
+description = "Structured prompt composer for Anima / OOO_Anima models in ComfyUI"
+authors = [{name = "anima-prompt-helper contributors"}]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = [
+    "comfyui",
+    "anima",
+    "prompt-engineering",
+    "danbooru",
+    "stable-diffusion",
+    "image-generation",
+    "custom-node",
+    "prompt",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Artistic Software",
+    "Topic :: Multimedia :: Graphics",
+    "Operating System :: OS Independent",
+    "Framework :: AsyncIO",
+]
+# No runtime dependencies beyond what ComfyUI already provides (aiohttp).
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-cov>=4.0", "pre-commit>=3.0"]
+bench = ["aiohttp>=3.8"]
+
+[tool.setuptools]
+# No Python package installs; this is a ComfyUI custom_node, not a pip package.
+packages = []
+
+[tool.setuptools.package-data]
+"*" = [
+    "data/*.json",
+    "i18n/*.json",
+    "templates/*.json",
+    "web/**/*",
+    "scripts/*.py",
+    "scripts/*.md",
+    "*.md",
+    "*.json",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"

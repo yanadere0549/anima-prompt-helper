@@ -1,0 +1,556 @@
+/* =============================================================================
+   anima_prompt_helper.css
+   Styles for the AnimaPromptComposer palette panel.
+   All class names are prefixed with aph- to avoid collisions.
+   Uses ComfyUI CSS variables where available, with dark-theme fallbacks.
+   ============================================================================= */
+
+/* --- Panel root --- */
+.aph-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  background-color: var(--bg-color, #1a1a2e);
+  color: var(--input-text, #e0e0e0);
+  font-family: var(--comfy-font, system-ui, -apple-system, sans-serif);
+  font-size: 13px;
+}
+
+/* --- Panel header (icon + title) --- */
+.aph-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.aph-header-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+.aph-header-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--input-text, #e0e0e0);
+  letter-spacing: 0.02em;
+}
+
+/* --- Character preset dropdown --- */
+.aph-preset-select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  border: 1px solid var(--border-color, #555);
+  border-radius: 4px;
+  background: var(--comfy-input-bg, #2a2a3e);
+  color: var(--input-text, #e0e0e0);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  appearance: auto;
+}
+
+.aph-preset-select:hover,
+.aph-preset-select:focus {
+  border-color: var(--p-primary-color, #7a7aff);
+}
+
+.aph-preset-select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.aph-preset-select option {
+  background: var(--comfy-input-bg, #2a2a3e);
+  color: var(--input-text, #e0e0e0);
+}
+
+/* --- Tab strip --- */
+.aph-tab-strip {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 4px;
+  padding-bottom: 2px;
+  min-width: 0;
+  /* Keep the tab row at its natural height when the panel is hosted inside
+     a flex-column container — prevents the row from collapsing to ~2 px
+     when computeSize feedback shrinks the available space. */
+  flex-shrink: 0;
+  min-height: 32px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color, #444) transparent;
+}
+
+.aph-tab-strip::-webkit-scrollbar {
+  height: 4px;
+}
+
+.aph-tab-strip::-webkit-scrollbar-thumb {
+  background: var(--border-color, #555);
+  border-radius: 2px;
+}
+
+.aph-tab-btn {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--border-color, #555);
+  border-radius: 4px;
+  background: var(--comfy-input-bg, #2a2a3e);
+  color: var(--input-text, #c0c0c0);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.aph-tab-btn:hover {
+  background: var(--comfy-menu-bg, #3a3a5e);
+  color: var(--input-text, #ffffff);
+  border-color: var(--p-primary-color, #7a7aff);
+}
+
+.aph-tab-btn.aph-tab-active {
+  background: var(--p-primary-color, #4a4aff);
+  color: #ffffff;
+  border-color: var(--p-primary-color, #4a4aff);
+  font-weight: 600;
+  /* Non-color indicator: 2px bottom border for active tab */
+  border-bottom: 2px solid #ffffff;
+}
+
+/* --- Search input --- */
+.aph-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  border: 1px solid var(--border-color, #555);
+  border-radius: 4px;
+  background: var(--comfy-input-bg, #2a2a3e);
+  color: var(--input-text, #e0e0e0);
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+.aph-search:focus {
+  border-color: var(--p-primary-color, #7a7aff);
+}
+
+.aph-search::placeholder {
+  color: var(--input-text, #888);
+  opacity: 0.6;
+}
+
+/* --- Tag grid --- */
+.aph-tag-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 2px;
+  min-width: 0;
+  /* Reserve at least four chip-rows of vertical space so the grid does not
+     collapse to ~4 px under flex-column shrinking. Combined with the
+     panel's computeSize floor in panel.js / tag_palette_panel.js this
+     stops the resize feedback loop. */
+  min-height: 140px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color, #444) transparent;
+}
+
+.aph-tag-grid::-webkit-scrollbar {
+  width: 5px;
+}
+
+.aph-tag-grid::-webkit-scrollbar-thumb {
+  background: var(--border-color, #555);
+  border-radius: 3px;
+}
+
+/* --- Tag buttons (chips) --- */
+/* #c8c8d8 on #252538: ratio ~6.5:1 — passes WCAG AA */
+.aph-tag-btn {
+  padding: 3px 6px;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 12px;
+  background: var(--comfy-input-bg, #252538);
+  color: var(--input-text, #d8d8e8);
+  font-size: 11px;
+  cursor: pointer;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.aph-tag-btn:hover {
+  background: var(--p-primary-color, #4a4aff);
+  color: #ffffff;
+  border-color: var(--p-primary-color, #4a4aff);
+}
+
+.aph-tag-btn:active {
+  filter: brightness(0.85);
+}
+
+/* --- No tags / load error messages --- */
+.aph-no-tags,
+.aph-load-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 8px;
+  color: var(--input-text, #888);
+  font-size: 12px;
+  text-align: center;
+}
+
+.aph-load-error {
+  color: #ff7070;
+}
+
+/* --- Preview textarea --- */
+.aph-preview {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  background: var(--comfy-input-bg, #1c1c2e);
+  color: var(--input-text, #b8ffb8);
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 60px;
+  cursor: default;
+}
+
+.aph-preview:focus {
+  border-color: var(--border-color, #666);
+}
+
+/* --- Validation badge bar --- */
+.aph-badges {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 0;
+}
+
+/* --- Badge pills --- */
+.aph-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: default;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+}
+
+/* WCAG AA contrast check (text vs panel bg #1a1a2e, L=0.01156):
+   - error   #ff8080 (L=0.38257) on blended bg #4b202f (L=0.02734): 5.59:1 ✓  /  vs raw panel: 7.03:1 ✓
+   - warning #ffc040 (L=0.59329) on blended bg #463923 (L=0.04350): 6.88:1 ✓  /  vs raw panel: 10.45:1 ✓
+   - info    #80b8ff (L=0.46090) on blended bg #1f2d51 (L=0.02762): 6.58:1 ✓  /  vs raw panel: 8.30:1 ✓
+   All three exceed 4.5:1 — no color changes required. */
+.aph-sev-error {
+  background: rgba(220, 50, 50, 0.25);
+  color: #ff8080;
+  border: 1px solid rgba(220, 50, 50, 0.5);
+}
+
+/* warning #ffc040 vs panel bg: 10.45:1 — passes WCAG AA */
+.aph-sev-warning {
+  background: rgba(200, 150, 0, 0.25);
+  color: #ffc040;
+  border: 1px solid rgba(200, 150, 0, 0.5);
+}
+
+/* info #80b8ff vs panel bg: 8.30:1 — passes WCAG AA */
+.aph-sev-info {
+  background: rgba(50, 120, 220, 0.2);
+  color: #80b8ff;
+  border: 1px solid rgba(50, 120, 220, 0.4);
+}
+
+.aph-len-badge {
+  margin-left: auto;
+  background: rgba(80, 80, 80, 0.3);
+  color: var(--input-text, #a0a0a0);
+  border: 1px solid var(--border-color, #555);
+  font-weight: 400;
+}
+
+/* --- Negative panel variant --- */
+.aph-negative-panel {
+  border: 1px solid rgba(180, 60, 60, 0.55);
+  border-radius: 4px;
+  background-color: var(--bg-color, #1a1a2e);
+}
+
+/* --- Target field row (label + select) --- */
+.aph-field-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.aph-target-field-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--input-text, #c0c0c0);
+  white-space: nowrap;
+}
+
+.aph-target-field {
+  flex: 1;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color, #555);
+  border-radius: 4px;
+  background: var(--comfy-input-bg, #2a2a3e);
+  color: var(--input-text, #e0e0e0);
+  font-size: 12px;
+  cursor: pointer;
+  appearance: auto;
+  transition: border-color 0.15s;
+}
+
+.aph-target-field:hover,
+.aph-target-field:focus {
+  border-color: rgba(200, 80, 80, 0.7);
+}
+
+.aph-target-field option {
+  background: var(--comfy-input-bg, #2a2a3e);
+  color: var(--input-text, #e0e0e0);
+}
+
+/* --- Negative preview textarea (red-tinted text) --- */
+.aph-negative-preview {
+  color: var(--input-text, #ffb8b8);
+}
+
+/* =============================================================================
+   Accessibility utilities
+   ============================================================================= */
+
+/* Screen-reader-only text: visually hidden but announced by AT */
+.aph-panel .sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* Visible focus rings for keyboard navigation (all interactive elements) */
+.aph-panel :focus-visible {
+  outline: 2px solid #66b3ff;
+  outline-offset: 2px;
+}
+
+/* =============================================================================
+   AnimaTagPalette panel extras
+   ============================================================================= */
+
+/* Slightly distinct border to differentiate from Composer */
+.aph-tag-palette-panel {
+  border: 1px solid rgba(80, 160, 120, 0.4);
+  border-radius: 4px;
+}
+
+/* Controls row: Composer selector + Field selector + Insert button */
+.aph-tag-palette-controls {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.aph-palette-composer-select,
+.aph-palette-field-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  border: 1px solid var(--border-color, #555);
+  border-radius: 4px;
+  background: var(--comfy-input-bg, #2a2a3e);
+  color: var(--input-text, #e0e0e0);
+  font-size: 12px;
+  cursor: pointer;
+  appearance: auto;
+  transition: border-color 0.15s;
+}
+
+.aph-palette-composer-select:hover,
+.aph-palette-composer-select:focus,
+.aph-palette-field-select:hover,
+.aph-palette-field-select:focus {
+  border-color: rgba(80, 200, 140, 0.7);
+}
+
+.aph-palette-composer-select option,
+.aph-palette-field-select option {
+  background: var(--comfy-input-bg, #2a2a3e);
+  color: var(--input-text, #e0e0e0);
+}
+
+.aph-palette-insert-btn {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border: 1px solid rgba(80, 200, 140, 0.6);
+  border-radius: 4px;
+  background: rgba(40, 100, 70, 0.35);
+  color: #80ffb8;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.aph-palette-insert-btn:hover {
+  background: rgba(50, 160, 100, 0.5);
+  border-color: rgba(80, 220, 160, 0.9);
+}
+
+.aph-palette-insert-btn:active {
+  filter: brightness(0.85);
+}
+
+/* Warning / info message below the controls row */
+.aph-tag-palette-warn {
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(200, 150, 0, 0.15);
+  border: 1px solid rgba(200, 150, 0, 0.4);
+  color: #ffc040;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* --- Subcategory row --- */
+.aph-subcat-row {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.aph-subcategory-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color, #555);
+  border-radius: 4px;
+  background: var(--comfy-input-bg, #2a2a3e);
+  color: var(--input-text, #e0e0e0);
+  font-size: 12px;
+  cursor: pointer;
+  appearance: auto;
+}
+
+.aph-subcategory-select:hover,
+.aph-subcategory-select:focus {
+  border-color: rgba(80, 200, 140, 0.7);
+}
+
+.aph-subcategory-select option {
+  background: var(--comfy-input-bg, #2a2a3e);
+  color: var(--input-text, #e0e0e0);
+}
+
+.aph-random-btn {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color, #555);
+  border-radius: 4px;
+  background: var(--comfy-input-bg, #2a2a3e);
+  color: var(--input-text, #e0e0e0);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.aph-random-btn:hover:not(:disabled) {
+  background: rgba(120, 80, 220, 0.4);
+  border-color: rgba(180, 130, 255, 0.7);
+}
+
+.aph-random-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* --- Tag button enhancements --- */
+.aph-tag-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  /* keep existing styling */
+}
+
+.aph-tag-label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.aph-tag-fav,
+.aph-tag-w-minus,
+.aph-tag-w-plus {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 0 3px;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.aph-tag-btn:hover .aph-tag-fav,
+.aph-tag-btn:hover .aph-tag-w-minus,
+.aph-tag-btn:hover .aph-tag-w-plus {
+  opacity: 0.85;
+}
+
+.aph-tag-fav:hover { background: rgba(255, 220, 80, 0.3); }
+.aph-tag-w-minus:hover { background: rgba(255, 130, 130, 0.3); }
+.aph-tag-w-plus:hover { background: rgba(130, 255, 130, 0.3); }
+
+/* When a tag is in favorites, show ★ permanently */
+.aph-tag-fav[data-active="true"] {
+  opacity: 1 !important;
+  color: #ffd060;
+}

@@ -1,0 +1,641 @@
+{
+  "version": "1.0",
+  "presets": [
+    {
+      "id": "hatsune_miku",
+      "label": "Hatsune Miku (Vocaloid)",
+      "character": "hatsune miku",
+      "series": "vocaloid",
+      "essential_general_tags": [
+        "long hair", "very long hair", "twintails", "blue hair", "blue eyes",
+        "necktie", "thigh highs", "headphones", "hair ornament"
+      ],
+      "recommended_artists": [],
+      "notes": "Default Vocaloid outfit assumed. Blue hair is canonical; aqua hair is an alias.",
+      "tier": 5
+    },
+    {
+      "id": "kagamine_rin",
+      "label": "Kagamine Rin (Vocaloid)",
+      "character": "kagamine rin",
+      "series": "vocaloid",
+      "essential_general_tags": [
+        "short hair", "blonde hair", "blue eyes", "hair ribbon",
+        "sailor uniform", "necktie", "bow (weapon)"
+      ],
+      "recommended_artists": [],
+      "notes": "Default Kagamine Rin outfit.",
+      "tier": 5
+    },
+    {
+      "id": "kagamine_len",
+      "label": "Kagamine Len (Vocaloid)",
+      "character": "kagamine len",
+      "series": "vocaloid",
+      "essential_general_tags": [
+        "short hair", "blonde hair", "blue eyes", "hair ribbon",
+        "sailor uniform", "necktie"
+      ],
+      "recommended_artists": [],
+      "notes": "Male Vocaloid character. Default Kagamine Len outfit.",
+      "tier": 4
+    },
+    {
+      "id": "megurine_luka",
+      "label": "Megurine Luka (Vocaloid)",
+      "character": "megurine luka",
+      "series": "vocaloid",
+      "essential_general_tags": [
+        "long hair", "pink hair", "blue eyes", "thigh highs",
+        "necktie", "hair ornament"
+      ],
+      "recommended_artists": [],
+      "notes": "Default Megurine Luka outfit.",
+      "tier": 5
+    },
+    {
+      "id": "kasane_teto",
+      "label": "Kasane Teto (Vocaloid / UTAU)",
+      "character": "kasane teto",
+      "series": "vocaloid",
+      "essential_general_tags": [
+        "long hair", "pink hair", "red eyes", "twintails",
+        "drill hair", "hair ornament"
+      ],
+      "recommended_artists": [],
+      "notes": "Originally UTAU, now officially Vocaloid. Drill twin tails are iconic.",
+      "tier": 4
+    },
+    {
+      "id": "rem_rezero",
+      "label": "Rem (Re:Zero)",
+      "character": "rem (re:zero)",
+      "series": "re:zero kara hajimeru isekai seikatsu",
+      "essential_general_tags": [
+        "short hair", "blue hair", "blue eyes", "hair ribbon",
+        "maid outfit", "hair ornament", "blush"
+      ],
+      "recommended_artists": [],
+      "notes": "Maid outfit is canonical. Hair ribbon on left side.",
+      "tier": 5
+    },
+    {
+      "id": "ram_rezero",
+      "label": "Ram (Re:Zero)",
+      "character": "ram (re:zero)",
+      "series": "re:zero kara hajimeru isekai seikatsu",
+      "essential_general_tags": [
+        "short hair", "pink hair", "red eyes", "hair ribbon",
+        "maid outfit", "hair ornament"
+      ],
+      "recommended_artists": [],
+      "notes": "Maid outfit canonical. Pink hair distinguishes from Rem.",
+      "tier": 5
+    },
+    {
+      "id": "emilia_rezero",
+      "label": "Emilia (Re:Zero)",
+      "character": "emilia (re:zero)",
+      "series": "re:zero kara hajimeru isekai seikatsu",
+      "essential_general_tags": [
+        "long hair", "silver hair", "purple eyes", "hair ornament",
+        "pointy ears", "flower in hair"
+      ],
+      "recommended_artists": [],
+      "notes": "Half-elf. Silver hair and purple eyes canonical.",
+      "tier": 5
+    },
+    {
+      "id": "beatrice_rezero",
+      "label": "Beatrice (Re:Zero)",
+      "character": "beatrice (re:zero)",
+      "series": "re:zero kara hajimeru isekai seikatsu",
+      "essential_general_tags": [
+        "long hair", "blonde hair", "blue eyes", "drill hair",
+        "twintails", "hair ribbon", "dress"
+      ],
+      "recommended_artists": [],
+      "notes": "Drill twintails are iconic.",
+      "tier": 4
+    },
+    {
+      "id": "hu_tao",
+      "label": "Hu Tao (Genshin Impact)",
+      "character": "hu tao (genshin impact)",
+      "series": "genshin impact",
+      "essential_general_tags": [
+        "long hair", "brown hair", "red eyes", "twintails",
+        "hat", "shorts", "flower in hair", "hair ornament"
+      ],
+      "recommended_artists": [],
+      "notes": "Wangsheng Funeral Parlor director outfit.",
+      "tier": 5
+    },
+    {
+      "id": "raiden_shogun",
+      "label": "Raiden Shogun (Genshin Impact)",
+      "character": "raiden shogun",
+      "series": "genshin impact",
+      "essential_general_tags": [
+        "long hair", "purple hair", "purple eyes", "hair ornament",
+        "kimono", "sword", "ribbon"
+      ],
+      "recommended_artists": [],
+      "notes": "Electro Archon of Inazuma. Purple color theme.",
+      "tier": 5
+    },
+    {
+      "id": "yae_miko",
+      "label": "Yae Miko (Genshin Impact)",
+      "character": "yae miko",
+      "series": "genshin impact",
+      "essential_general_tags": [
+        "long hair", "pink hair", "pink eyes", "fox ears",
+        "tail", "hair ornament", "kimono"
+      ],
+      "recommended_artists": [],
+      "notes": "Kitsune shrine maiden. Fox ears and tail are canonical.",
+      "tier": 5
+    },
+    {
+      "id": "ganyu",
+      "label": "Ganyu (Genshin Impact)",
+      "character": "ganyu (genshin impact)",
+      "series": "genshin impact",
+      "essential_general_tags": [
+        "long hair", "blue hair", "purple eyes", "horns",
+        "hair ornament", "bow (weapon)", "thigh highs"
+      ],
+      "recommended_artists": [],
+      "notes": "Half-adepti with small horns. Cryo archer.",
+      "tier": 5
+    },
+    {
+      "id": "klee",
+      "label": "Klee (Genshin Impact)",
+      "character": "klee (genshin impact)",
+      "series": "genshin impact",
+      "essential_general_tags": [
+        "short hair", "red hair", "pointy ears", "hat",
+        "dress", "backpack", "smile"
+      ],
+      "recommended_artists": [],
+      "notes": "Child pyro character with pointed elf ears and hat.",
+      "tier": 4
+    },
+    {
+      "id": "nahida",
+      "label": "Nahida (Genshin Impact)",
+      "character": "nahida (genshin impact)",
+      "series": "genshin impact",
+      "essential_general_tags": [
+        "short hair", "white hair", "green eyes", "pointy ears",
+        "dress", "hair ornament", "flower in hair"
+      ],
+      "recommended_artists": [],
+      "notes": "Dendro Archon, child-like appearance.",
+      "tier": 4
+    },
+    {
+      "id": "furina",
+      "label": "Furina (Genshin Impact)",
+      "character": "furina (genshin impact)",
+      "series": "genshin impact",
+      "essential_general_tags": [
+        "long hair", "blue hair", "heterochromia", "hat",
+        "dress", "gloves", "thigh highs"
+      ],
+      "recommended_artists": [],
+      "notes": "Hydro Archon of Fontaine. Heterochromia eyes (blue/teal).",
+      "tier": 4
+    },
+    {
+      "id": "mona_genshin",
+      "label": "Mona (Genshin Impact)",
+      "character": "mona (genshin impact)",
+      "series": "genshin impact",
+      "essential_general_tags": [
+        "long hair", "black hair", "blue eyes", "twintails",
+        "hat", "thigh highs", "hair ribbon"
+      ],
+      "recommended_artists": [],
+      "notes": "Hydro astrologist with witch hat.",
+      "tier": 4
+    },
+    {
+      "id": "kafka_hsr",
+      "label": "Kafka (Honkai: Star Rail)",
+      "character": "kafka (honkai: star rail)",
+      "series": "honkai: star rail",
+      "essential_general_tags": [
+        "long hair", "purple hair", "purple eyes", "suit",
+        "choker", "earrings", "thigh highs"
+      ],
+      "recommended_artists": [],
+      "notes": "Nihility path character. Purple theme with professional attire.",
+      "tier": 5
+    },
+    {
+      "id": "silver_wolf_hsr",
+      "label": "Silver Wolf (Honkai: Star Rail)",
+      "character": "silver wolf (honkai: star rail)",
+      "series": "honkai: star rail",
+      "essential_general_tags": [
+        "short hair", "blue hair", "grey eyes", "hood",
+        "jacket", "shorts", "headphones"
+      ],
+      "recommended_artists": [],
+      "notes": "Hacker character with hoodie aesthetic.",
+      "tier": 5
+    },
+    {
+      "id": "bronya_hsr",
+      "label": "Bronya (Honkai: Star Rail)",
+      "character": "bronya rand",
+      "series": "honkai: star rail",
+      "essential_general_tags": [
+        "long hair", "silver hair", "blue eyes", "twintails",
+        "coat", "gloves", "hair ribbon"
+      ],
+      "recommended_artists": [],
+      "notes": "Supreme Guardian of Belobog.",
+      "tier": 4
+    },
+    {
+      "id": "firefly_hsr",
+      "label": "Firefly (Honkai: Star Rail)",
+      "character": "firefly (honkai: star rail)",
+      "series": "honkai: star rail",
+      "essential_general_tags": [
+        "short hair", "orange hair", "red eyes", "suit",
+        "gloves", "belt"
+      ],
+      "recommended_artists": [],
+      "notes": "Destruction path character, SAM/Firefly dual identity.",
+      "tier": 4
+    },
+    {
+      "id": "acheron_hsr",
+      "label": "Acheron (Honkai: Star Rail)",
+      "character": "acheron (honkai: star rail)",
+      "series": "honkai: star rail",
+      "essential_general_tags": [
+        "long hair", "purple hair", "red eyes", "sword",
+        "coat", "thigh highs", "hair ornament"
+      ],
+      "recommended_artists": [],
+      "notes": "Nihility path character with katana.",
+      "tier": 5
+    },
+    {
+      "id": "frieren",
+      "label": "Frieren (Frieren: Beyond Journey's End)",
+      "character": "frieren",
+      "series": "sousou no frieren",
+      "essential_general_tags": [
+        "long hair", "silver hair", "grey eyes", "pointy ears",
+        "coat", "hair ornament", "staff (weapon)"
+      ],
+      "recommended_artists": [],
+      "notes": "Elven mage. Pointed ears and staff canonical.",
+      "tier": 5
+    },
+    {
+      "id": "fern_frieren",
+      "label": "Fern (Frieren: Beyond Journey's End)",
+      "character": "fern (sousou no frieren)",
+      "series": "sousou no frieren",
+      "essential_general_tags": [
+        "long hair", "purple hair", "purple eyes", "hair ribbon",
+        "coat", "thigh highs", "staff (weapon)"
+      ],
+      "recommended_artists": [],
+      "notes": "Frieren's apprentice mage.",
+      "tier": 4
+    },
+    {
+      "id": "stark_frieren",
+      "label": "Stark (Frieren: Beyond Journey's End)",
+      "character": "stark (sousou no frieren)",
+      "series": "sousou no frieren",
+      "essential_general_tags": [
+        "short hair", "brown hair", "brown eyes", "sword",
+        "coat"
+      ],
+      "recommended_artists": [],
+      "notes": "Male warrior companion.",
+      "tier": 3
+    },
+    {
+      "id": "anya_forger",
+      "label": "Anya Forger (Spy x Family)",
+      "character": "anya forger",
+      "series": "spy x family",
+      "essential_general_tags": [
+        "short hair", "pink hair", "green eyes", "school uniform",
+        "hair ornament", "blush", "smile"
+      ],
+      "recommended_artists": [],
+      "notes": "Child telepath. Distinctive “hoeh” expression and star hair clips.",
+      "tier": 5
+    },
+    {
+      "id": "yor_forger",
+      "label": "Yor Forger (Spy x Family)",
+      "character": "yor briar",
+      "series": "spy x family",
+      "essential_general_tags": [
+        "long hair", "black hair", "red eyes", "dress",
+        "earrings", "choker", "gloves"
+      ],
+      "recommended_artists": [],
+      "notes": "Canonical Danbooru tag is yor briar. Assassin/mother character.",
+      "tier": 5
+    },
+    {
+      "id": "power_csm",
+      "label": "Power (Chainsaw Man)",
+      "character": "power (chainsaw man)",
+      "series": "chainsaw man",
+      "essential_general_tags": [
+        "long hair", "blonde hair", "red eyes", "horns",
+        "fang", "blood", "jacket"
+      ],
+      "recommended_artists": [],
+      "notes": "Blood Fiend. Horns and fangs are canonical.",
+      "tier": 5
+    },
+    {
+      "id": "makima_csm",
+      "label": "Makima (Chainsaw Man)",
+      "character": "makima (chainsaw man)",
+      "series": "chainsaw man",
+      "essential_general_tags": [
+        "long hair", "red hair", "yellow eyes", "suit",
+        "necktie", "smile"
+      ],
+      "recommended_artists": [],
+      "notes": "Control Devil. Ringed yellow eyes are canonical.",
+      "tier": 5
+    },
+    {
+      "id": "denji_csm",
+      "label": "Denji (Chainsaw Man)",
+      "character": "denji (chainsaw man)",
+      "series": "chainsaw man",
+      "essential_general_tags": [
+        "short hair", "blonde hair", "brown eyes", "chainsaw",
+        "jacket", "blood"
+      ],
+      "recommended_artists": [],
+      "notes": "Male protagonist. Chainsaw weapon is canonical.",
+      "tier": 4
+    },
+    {
+      "id": "nezuko_kamado",
+      "label": "Nezuko Kamado (Demon Slayer)",
+      "character": "kamado nezuko",
+      "series": "kimetsu no yaiba",
+      "essential_general_tags": [
+        "long hair", "black hair", "pink eyes", "kimono",
+        "hair ribbon", "fang", "bamboo muzzle"
+      ],
+      "recommended_artists": [],
+      "notes": "Danbooru tag is kamado nezuko. Bamboo muzzle is iconic.",
+      "tier": 5
+    },
+    {
+      "id": "mitsuri_kanroji",
+      "label": "Mitsuri Kanroji (Demon Slayer)",
+      "character": "kanroji mitsuri",
+      "series": "kimetsu no yaiba",
+      "essential_general_tags": [
+        "long hair", "pink hair", "green eyes", "twintails",
+        "kimono", "sword", "hair ribbon"
+      ],
+      "recommended_artists": [],
+      "notes": "Danbooru tag is kanroji mitsuri. Love Hashira.",
+      "tier": 4
+    },
+    {
+      "id": "chisato_nishikigi",
+      "label": "Chisato Nishikigi (Lycoris Recoil)",
+      "character": "nishikigi chisato",
+      "series": "lycoris recoil",
+      "essential_general_tags": [
+        "short hair", "blonde hair", "red eyes", "school uniform",
+        "smile", "gun"
+      ],
+      "recommended_artists": [],
+      "notes": "Danbooru tag is nishikigi chisato.",
+      "tier": 5
+    },
+    {
+      "id": "takina_inoue",
+      "label": "Takina Inoue (Lycoris Recoil)",
+      "character": "inoue takina",
+      "series": "lycoris recoil",
+      "essential_general_tags": [
+        "long hair", "black hair", "blue eyes", "school uniform",
+        "gun", "serious"
+      ],
+      "recommended_artists": [],
+      "notes": "Danbooru tag is inoue takina.",
+      "tier": 5
+    },
+    {
+      "id": "asuna_sao",
+      "label": "Asuna (Sword Art Online)",
+      "character": "yuuki asuna",
+      "series": "sword art online",
+      "essential_general_tags": [
+        "long hair", "brown hair", "brown eyes", "sword",
+        "thigh highs", "hair ribbon", "gloves"
+      ],
+      "recommended_artists": [],
+      "notes": "Danbooru tag is yuuki asuna. KoB outfit assumed.",
+      "tier": 5
+    },
+    {
+      "id": "ann_takamaki",
+      "label": "Ann Takamaki (Persona 5)",
+      "character": "takamaki anne",
+      "series": "persona 5",
+      "essential_general_tags": [
+        "long hair", "blonde hair", "blue eyes", "twintails",
+        "school uniform", "choker"
+      ],
+      "recommended_artists": [],
+      "notes": "Danbooru tag is takamaki anne. Phantom Thief Panther.",
+      "tier": 4
+    },
+    {
+      "id": "gawr_gura",
+      "label": "Gawr Gura (Hololive)",
+      "character": "gawr gura",
+      "series": "hololive",
+      "essential_general_tags": [
+        "short hair", "blue hair", "blue eyes", "shark tail",
+        "animal ears", "hoodie", "fang"
+      ],
+      "recommended_artists": [],
+      "notes": "Shark VTuber. Shark tail and hood are canonical.",
+      "tier": 5
+    },
+    {
+      "id": "usada_pekora",
+      "label": "Usada Pekora (Hololive)",
+      "character": "usada pekora",
+      "series": "hololive",
+      "essential_general_tags": [
+        "long hair", "blue hair", "blue eyes", "rabbit ears",
+        "hair ornament", "dress", "tail"
+      ],
+      "recommended_artists": [],
+      "notes": "Rabbit VTuber with distinctive carrot motifs.",
+      "tier": 5
+    },
+    {
+      "id": "houshou_marine",
+      "label": "Houshou Marine (Hololive)",
+      "character": "houshou marine",
+      "series": "hololive",
+      "essential_general_tags": [
+        "long hair", "red hair", "blue eyes", "hat",
+        "dress", "hair ornament", "choker"
+      ],
+      "recommended_artists": [],
+      "notes": "Pirate VTuber. Captain's hat is canonical.",
+      "tier": 5
+    },
+    {
+      "id": "hakurei_reimu",
+      "label": "Hakurei Reimu (Touhou)",
+      "character": "hakurei reimu",
+      "series": "touhou",
+      "essential_general_tags": [
+        "long hair", "black hair", "red eyes", "hair ribbon",
+        "bow (weapon)", "miko", "detached sleeves"
+      ],
+      "recommended_artists": [],
+      "notes": "Shrine maiden protagonist. Miko outfit with red ribbon.",
+      "tier": 5
+    },
+    {
+      "id": "kirisame_marisa",
+      "label": "Kirisame Marisa (Touhou)",
+      "character": "kirisame marisa",
+      "series": "touhou",
+      "essential_general_tags": [
+        "long hair", "blonde hair", "yellow eyes", "hat",
+        "braid", "dress", "wand", "star"
+      ],
+      "recommended_artists": [],
+      "notes": "Witch with black pointy hat. Broom and star motifs.",
+      "tier": 5
+    },
+    {
+      "id": "remilia_scarlet",
+      "label": "Remilia Scarlet (Touhou)",
+      "character": "remilia scarlet",
+      "series": "touhou",
+      "essential_general_tags": [
+        "short hair", "blue hair", "red eyes", "bat wings",
+        "dress", "hat", "fang"
+      ],
+      "recommended_artists": [],
+      "notes": "Vampire mistress of Scarlet Devil Mansion.",
+      "tier": 5
+    },
+    {
+      "id": "cirno",
+      "label": "Cirno (Touhou)",
+      "character": "cirno",
+      "series": "touhou",
+      "essential_general_tags": [
+        "short hair", "blue hair", "blue eyes", "hair ribbon",
+        "dress", "fairy wings", "smile"
+      ],
+      "recommended_artists": [],
+      "notes": "Ice fairy. Fairy wings and bow are canonical.",
+      "tier": 4
+    },
+    {
+      "id": "ryza_atelier",
+      "label": "Ryza (Atelier Ryza)",
+      "character": "reisalin stout",
+      "series": "atelier ryza: ever darkness & the secret hideout",
+      "essential_general_tags": [
+        "short hair", "brown hair", "red eyes", "hat",
+        "shorts", "thigh highs", "belt", "boots"
+      ],
+      "recommended_artists": [],
+      "notes": "Danbooru tag is reisalin stout. Summery adventurer outfit.",
+      "tier": 4
+    },
+    {
+      "id": "shibuya_rin",
+      "label": "Shibuya Rin (THE iDOLM@STER Cinderella Girls)",
+      "character": "shibuya rin",
+      "series": "idolmaster cinderella girls",
+      "essential_general_tags": [
+        "long hair", "black hair", "blue eyes", "dress",
+        "hair ornament", "flower in hair"
+      ],
+      "recommended_artists": [],
+      "notes": "Cool-type idol. Black hair and blue eyes are canonical.",
+      "tier": 4
+    },
+    {
+      "id": "honda_mio",
+      "label": "Honda Mio (THE iDOLM@STER Cinderella Girls)",
+      "character": "honda mio",
+      "series": "idolmaster cinderella girls",
+      "essential_general_tags": [
+        "short hair", "orange hair", "brown eyes", "hair ornament",
+        "dress", "smile"
+      ],
+      "recommended_artists": [],
+      "notes": "Passion-type idol.",
+      "tier": 3
+    },
+    {
+      "id": "archetype_schoolgirl",
+      "label": "Generic School Girl",
+      "character": "",
+      "series": "",
+      "essential_general_tags": [
+        "1girl", "school uniform", "long hair", "brown hair",
+        "brown eyes", "standing"
+      ],
+      "recommended_artists": [],
+      "notes": "Generic anime school girl archetype.",
+      "tier": 2
+    },
+    {
+      "id": "archetype_maid",
+      "label": "Generic Maid",
+      "character": "",
+      "series": "",
+      "essential_general_tags": [
+        "1girl", "maid", "apron", "long hair", "blush", "smile"
+      ],
+      "recommended_artists": [],
+      "notes": "Generic maid archetype.",
+      "tier": 2
+    },
+    {
+      "id": "archetype_idol",
+      "label": "Generic Idol",
+      "character": "",
+      "series": "",
+      "essential_general_tags": [
+        "1girl", "idol", "dress", "long hair", "smile", "singing",
+        "sparkles"
+      ],
+      "recommended_artists": [],
+      "notes": "Generic anime idol archetype.",
+      "tier": 2
+    }
+  ]
+}

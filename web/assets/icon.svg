@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
+  <title>anima-prompt-helper icon</title>
+  <!-- Background rounded square -->
+  <rect x="1" y="1" width="30" height="30" rx="6" ry="6" fill="#1e1b4b" stroke="#6366f1" stroke-width="1.5"/>
+  <!-- Left bracket -->
+  <path d="M8 8 L5 8 L5 24 L8 24" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Right bracket -->
+  <path d="M24 8 L27 8 L27 24 L24 24" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Center sparkle star (4-point) -->
+  <path d="M16 10 L17 14 L21 16 L17 18 L16 22 L15 18 L11 16 L15 14 Z" fill="#f472b6" opacity="0.95"/>
+  <!-- Small sparkle dot top-right -->
+  <circle cx="22" cy="9" r="1" fill="#f472b6" opacity="0.7"/>
+  <!-- Three palette dots at bottom -->
+  <circle cx="12" cy="26.5" r="1.2" fill="#6366f1"/>
+  <circle cx="16" cy="26.5" r="1.2" fill="#22d3ee"/>
+  <circle cx="20" cy="26.5" r="1.2" fill="#f472b6"/>
+</svg>

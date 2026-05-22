@@ -1,0 +1,121 @@
+{
+  "version": "1.0",
+  "model_presets": {
+    "anima_base": {
+      "id": "anima_base",
+      "label": "Anima Base v1.0",
+      "default_prefix_quality": "masterpiece, best quality, score_7",
+      "default_prefix_year": "",
+      "default_rating": "safe",
+      "default_extra": "",
+      "default_negative": "worst quality, low quality, score_1, score_2, score_3, artist name",
+      "recommended": {
+        "sampler": "er_sde",
+        "scheduler": "simple",
+        "steps": 30,
+        "cfg": 4.0,
+        "resolution_range": [512, 1536]
+      }
+    },
+    "ooo_anima": {
+      "id": "ooo_anima",
+      "label": "OOO_Anima v1.0",
+      "default_prefix_quality": "masterpiece, best quality, high quality",
+      "default_prefix_year": "newest, year 2025, year 2024",
+      "default_rating": "safe",
+      "default_extra": "game cg",
+      "default_negative": "worst quality, low quality, score_1, score_2, score_3, artifacts, early, old, nsfw, realistic",
+      "recommended": {
+        "sampler": "euler_ancestral",
+        "scheduler": "simple",
+        "steps": 35,
+        "cfg": 4.5,
+        "resolution_range": [512, 1920]
+      }
+    }
+  },
+  "canonical_order": [
+    "quality", "year", "rating", "count", "character", "series", "artist", "general", "natural_language"
+  ],
+  "field_specs": {
+    "quality": {
+      "label": "Quality tags",
+      "joiner": ", ",
+      "trailing_comma": false,
+      "multiline": false,
+      "hint": "masterpiece, best quality, high quality, score_7"
+    },
+    "year": {
+      "label": "Year / era",
+      "joiner": ", ",
+      "trailing_comma": false,
+      "multiline": false,
+      "hint": "newest, year 2025, year 2024"
+    },
+    "rating": {
+      "label": "Rating",
+      "joiner": ", ",
+      "trailing_comma": false,
+      "multiline": false,
+      "widget": "combo",
+      "options": ["safe", "sensitive", "nsfw", "explicit"],
+      "default": "safe"
+    },
+    "count": {
+      "label": "Subject count",
+      "joiner": ", ",
+      "trailing_comma": false,
+      "multiline": false,
+      "hint": "1girl, solo"
+    },
+    "character": {
+      "label": "Character",
+      "joiner": ", ",
+      "trailing_comma": false,
+      "multiline": true,
+      "hint": "hatsune miku"
+    },
+    "series": {
+      "label": "Series",
+      "joiner": ", ",
+      "trailing_comma": false,
+      "multiline": true,
+      "hint": "vocaloid"
+    },
+    "artist": {
+      "label": "Artist (@-prefixed)",
+      "joiner": ", ",
+      "trailing_comma": false,
+      "multiline": true,
+      "hint": "@wlop, @kantoku",
+      "validator": "artist_must_have_at"
+    },
+    "general": {
+      "label": "General tags",
+      "joiner": ", ",
+      "trailing_comma": false,
+      "multiline": true,
+      "hint": "long hair, blue eyes, smile, school uniform"
+    },
+    "natural_language": {
+      "label": "Natural language description",
+      "joiner": ". ",
+      "trailing_comma": false,
+      "multiline": true,
+      "hint": "She is standing in a sunlit park..."
+    }
+  },
+  "validation_rules": {
+    "artist_at_required": true,
+    "lowercase_required": true,
+    "underscore_forbidden_except": ["^score_\\d+$", "^score_\\d+_up$", "^\\(.+:\\d+(?:\\.\\d+)?\\)$"],
+    "rating_allowed_values": ["safe", "sensitive", "nsfw", "explicit"],
+    "long_prompt_threshold": 3000,
+    "non_validated_fields_for_underscore": ["natural_language"],
+    "non_validated_fields_for_lowercase": ["character", "series", "natural_language"]
+  },
+  "documentation_links": {
+    "anima_base_card": "https://huggingface.co/circlestone-labs/Anima",
+    "ooo_anima_card": "https://huggingface.co/oron1208/OOO_Anima"
+  }
+}

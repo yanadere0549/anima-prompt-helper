@@ -1,0 +1,6 @@
+{
+  "AnimaPromptComposer": "Anima Prompt Composer — compose Anima-canonical prompts via 9 ordered fields and a click-to-add tag palette",
+  "AnimaPromptToConditioning": "Convert composed prompt to CONDITIONING using a CLIP encoder",
+  "AnimaNegativePromptComposer": "Compose Anima/OOO_Anima negative prompts from six categories with model-specific preset overrides",
+  "AnimaTagPalette": "Anima Tag Palette — satellite node with 26 category tabs (hair_color and below); connects to AnimaPromptComposer or writes via DOM injection"
+}
