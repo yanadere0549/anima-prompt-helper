@@ -5,11 +5,11 @@
  * Shows only the 26 non-Composer tabs (hair_color and below).
  * Provides:
  *   - 対象 Composer dropdown (同一グラフ内 AnimaPromptComposer を列挙)
- *   - 挿入先フィールド dropdown (TARGET_FIELD_OPTIONS)
- *   - タブ切替時に挿入先を自動更新 (CATEGORY_DEFAULT_TARGET)
+ *   - 挿入先フィールドは選択中カテゴリから自動決定 (CATEGORY_DEFAULT_TARGET)
  *   - 「Composerへ挿入」ボタン
  *   - タグクリック時に tags_buffer widget を更新
- *   - Subcategory dropdown (タブ下、サーチ上)
+ *   - カテゴリタブを左サイドバーの縦タブとして表示
+ *   - Subcategory dropdown (右カラム上部、サーチ上)
  *   - Random button (🎲) — 現在のカテゴリ+サブカテゴリからランダムタグ追加
  *   - ★ お気に入りタブ / 🕒 履歴タブ (特殊タブ)
  *   - タグボタンホバー時に ★ / − / + ボタン表示
@@ -56,9 +56,62 @@ import {
 // Special tabs (Favorites / History) — not in PaletteStore categories
 // ---------------------------------------------------------------------------
 const SPECIAL_TABS = [
-  { id: "__favorites__", label: "★ Favorites" },
-  { id: "__history__",   label: "🕒 History"   },
+  { id: "__favorites__", label: "★ Favorites\nお気に入り" },
+  { id: "__history__",   label: "🕒 History\n履歴"       },
 ];
+
+// ---------------------------------------------------------------------------
+// Japanese translations for palette category labels (vertical tab UI).
+// Backend returns English labels (e.g. "Hair Color"); we append a Japanese
+// translation on a second line so users can recognize categories at a glance.
+// ---------------------------------------------------------------------------
+const TAG_CATEGORY_LABEL_JA = {
+  quality:          "品質",
+  year:             "年代",
+  rating:           "レーティング",
+  count:            "人数",
+  hair_color:       "髪色",
+  hair_length:      "髪の長さ",
+  hair_style:       "髪型",
+  eye_color:        "瞳の色",
+  expression:       "表情",
+  pose:             "ポーズ",
+  composition:      "構図 / アングル",
+  clothing:         "服装",
+  location:         "場所 / 背景",
+  lighting:         "照明",
+  style:            "画風 / 画材",
+  effects:          "エフェクト",
+  artist:           "絵師",
+  natural_language: "自然言語テンプレ",
+  accessory:        "装飾品",
+  weapon:           "武器 / 装備",
+  food:             "食べ物 / 飲み物",
+  animal:           "動物 / 生き物",
+  situation:        "状況 / 行動",
+  camera:           "カメラ / ショット",
+  color_tone:       "色調 / パレット",
+  weather_atmos:    "天候 / 雰囲気",
+  season:           "季節",
+  architecture:     "建築 / 建物",
+  magic_fantasy:    "魔法 / ファンタジー",
+  accessory_floral: "花 / 植物",
+};
+
+/**
+ * Returns the tab label for a palette category, appending a Japanese
+ * translation on a new line when one is registered.
+ *
+ * Example: { id: "hair_color", label: "Hair Color" } → "Hair Color\n髪色"
+ *
+ * @param {{id: string, label?: string}} cat
+ * @returns {string}
+ */
+function _formatCategoryTabLabel(cat) {
+  const base = cat.label || cat.id;
+  const ja = TAG_CATEGORY_LABEL_JA[cat.id];
+  return ja ? base + "\n" + ja : base;
+}
 
 // ---------------------------------------------------------------------------
 // Module-scope caches (set by the main entry point via setTagPaletteCaches)
@@ -451,7 +504,9 @@ export function injectTagPalettePanel(node) {
   situationRowEl.appendChild(saveCurrentSituationBtn);
   situationRowEl.appendChild(editSituationBtn);
 
-  // --- Controls row: Composer selector + Field selector + Insert button ---
+  // --- Controls row: Composer selector + Insert button ---
+  // 挿入先フィールドは選択中カテゴリから CATEGORY_DEFAULT_TARGET で自動決定する
+  // (UI 上のドロップダウンは廃止)
   const controlsEl = document.createElement("div");
   controlsEl.className = "aph-tag-palette-controls";
 
@@ -464,16 +519,7 @@ export function injectTagPalettePanel(node) {
   composerDefaultOpt.textContent = "-- 対象 Composer --";
   composerSelect.appendChild(composerDefaultOpt);
 
-  const fieldSelect = document.createElement("select");
-  fieldSelect.className = "aph-palette-field-select";
-  fieldSelect.setAttribute("aria-label", "挿入先フィールド");
-
-  for (const fieldName of TARGET_FIELD_OPTIONS) {
-    const opt = document.createElement("option");
-    opt.value = fieldName;
-    opt.textContent = fieldName;
-    fieldSelect.appendChild(opt);
-  }
+  let currentTargetField = "general";
 
   const insertBtn = document.createElement("button");
   insertBtn.className = "aph-palette-insert-btn";
@@ -481,7 +527,6 @@ export function injectTagPalettePanel(node) {
   insertBtn.setAttribute("aria-label", "選択中タグをComposerへ挿入");
 
   controlsEl.appendChild(composerSelect);
-  controlsEl.appendChild(fieldSelect);
   controlsEl.appendChild(insertBtn);
 
   // Warning label
@@ -525,15 +570,28 @@ export function injectTagPalettePanel(node) {
   // -------------------------------------------------------------------------
   // Assemble panel in specified DOM order
   // -------------------------------------------------------------------------
+  // 2-column body: left = vertical tab strip, right = subcat + search + grid
+  const bodyEl = document.createElement("div");
+  bodyEl.className = "aph-tag-palette-body";
+
+  // Mark the tab strip as vertical sidebar mode
+  tabStrip.classList.add("aph-tab-strip--vertical");
+
+  const rightColEl = document.createElement("div");
+  rightColEl.className = "aph-tag-palette-right-col";
+  rightColEl.appendChild(subcatRowEl);
+  rightColEl.appendChild(searchInput);
+  rightColEl.appendChild(tagGrid);
+
+  bodyEl.appendChild(tabStrip);
+  bodyEl.appendChild(rightColEl);
+
   panelEl.appendChild(headerEl);
   panelEl.appendChild(presetRowEl);
   panelEl.appendChild(situationRowEl);
   panelEl.appendChild(controlsEl);
   panelEl.appendChild(insertWarnEl);
-  panelEl.appendChild(tabStrip);
-  panelEl.appendChild(subcatRowEl);
-  panelEl.appendChild(searchInput);
-  panelEl.appendChild(tagGrid);
+  panelEl.appendChild(bodyEl);
 
   // -------------------------------------------------------------------------
   // Register DOM widget
@@ -723,7 +781,7 @@ export function injectTagPalettePanel(node) {
     if (op === "remove") removeTagFromBuffer(node, tagStr);
 
     const composerNodeId = parseInt(composerSelect.value, 10);
-    const targetField = fieldSelect.value;
+    const targetField = currentTargetField;
     if (!composerNodeId || !targetField || !node.graph) return;
 
     const composers = getComposerNodes(node.graph);
@@ -989,9 +1047,9 @@ export function injectTagPalettePanel(node) {
 
     if (!isSpecial) {
       const defaultTarget = CATEGORY_DEFAULT_TARGET[catId] ?? "general";
-      if (TARGET_FIELD_OPTIONS.includes(defaultTarget)) {
-        fieldSelect.value = defaultTarget;
-      }
+      currentTargetField = TARGET_FIELD_OPTIONS.includes(defaultTarget)
+        ? defaultTarget
+        : "general";
       // Refresh subcategory dropdown (restores saved selection or resets to "All")
       refreshSubcategoryDropdown();
     }
@@ -1029,7 +1087,7 @@ export function injectTagPalettePanel(node) {
   // -------------------------------------------------------------------------
   insertBtn.addEventListener("click", () => {
     const composerNodeId = parseInt(composerSelect.value, 10);
-    const targetField = fieldSelect.value;
+    const targetField = currentTargetField;
 
     if (!composerNodeId) {
       insertWarnEl.textContent = "対象 Composer を選択してください。";
@@ -1037,7 +1095,7 @@ export function injectTagPalettePanel(node) {
       return;
     }
     if (!targetField) {
-      insertWarnEl.textContent = "挿入先フィールドを選択してください。";
+      insertWarnEl.textContent = "挿入先フィールドを決定できませんでした。";
       insertWarnEl.style.display = "";
       return;
     }
@@ -1251,9 +1309,6 @@ export function injectTagPalettePanel(node) {
   composerSelect.addEventListener("change", () => {
     insertWarnEl.style.display = "none";
   });
-  fieldSelect.addEventListener("change", () => {
-    insertWarnEl.style.display = "none";
-  });
 
   // Subcategory change handler
   subcategorySelect.addEventListener("change", () => {
@@ -1287,9 +1342,9 @@ export function injectTagPalettePanel(node) {
 
     // Build category list: special tabs first, then non-Composer palette categories
     const allCategories = PaletteStore.getCategories();
-    const palCategories = allCategories.filter(
-      (c) => !COMPOSER_ONLY_TABS.includes(c.id)
-    );
+    const palCategories = allCategories
+      .filter((c) => !COMPOSER_ONLY_TABS.includes(c.id))
+      .map((c) => ({ ...c, label: _formatCategoryTabLabel(c) }));
     const allTabs = [...SPECIAL_TABS, ...palCategories];
 
     // Restore or default to first non-special category
@@ -1312,14 +1367,14 @@ export function injectTagPalettePanel(node) {
       allTabs
     );
 
-    // Set initial field dropdown value (only for non-special tabs)
+    // Set initial target field (only for non-special tabs)
     const isSpecial = currentCategoryId === "__favorites__" || currentCategoryId === "__history__";
     if (!isSpecial && currentCategoryId) {
       const defaultTarget =
         CATEGORY_DEFAULT_TARGET[currentCategoryId] ?? "general";
-      if (TARGET_FIELD_OPTIONS.includes(defaultTarget)) {
-        fieldSelect.value = defaultTarget;
-      }
+      currentTargetField = TARGET_FIELD_OPTIONS.includes(defaultTarget)
+        ? defaultTarget
+        : "general";
     }
 
     // Set up subcategory row visibility

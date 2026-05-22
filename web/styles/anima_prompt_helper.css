@@ -454,6 +454,66 @@
   line-height: 1.4;
 }
 
+/* --- Tag palette body: 2-column layout (vertical sidebar + content) --- */
+.aph-tag-palette-body {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 0;
+}
+
+.aph-tag-palette-right-col {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Vertical tab strip variant — used inside .aph-tag-palette-body */
+.aph-tab-strip--vertical {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  overflow-x: hidden;
+  overflow-y: auto;
+  width: 150px;
+  flex: 0 0 150px;
+  min-width: 0;
+  min-height: 0;
+  max-height: 320px;
+  padding-right: 4px;
+  padding-bottom: 0;
+  gap: 3px;
+}
+
+.aph-tab-strip--vertical::-webkit-scrollbar {
+  width: 4px;
+  height: auto;
+}
+
+.aph-tab-strip--vertical .aph-tab-btn {
+  width: 100%;
+  text-align: left;
+  /* preserve \n in the label so English / 日本語 stack on two lines */
+  white-space: pre-line;
+  padding: 4px 8px;
+  line-height: 1.25;
+}
+
+.aph-tab-strip--vertical .aph-tab-btn,
+.aph-tab-strip--vertical .aph-tab-btn:hover {
+  font-size: 11.5px;
+}
+
+.aph-tab-strip--vertical .aph-tab-btn.aph-tab-active {
+  /* In vertical mode use a left-side indicator instead of the bottom one. */
+  border-bottom: 1px solid var(--p-primary-color, #4a4aff);
+  border-left: 3px solid #ffffff;
+  padding-left: 5px;
+}
+
 /* --- Subcategory row --- */
 .aph-subcat-row {
   display: flex;

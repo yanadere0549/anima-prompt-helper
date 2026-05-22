@@ -202,14 +202,18 @@ function renderTabStrip(container, activeCategoryId, onSelect, overrideCats) {
     container.appendChild(btn);
   }
 
-  // Arrow Left/Right keyboard navigation for the tab strip
+  // Arrow keyboard navigation for the tab strip. Supports both horizontal
+  // (Left/Right) and vertical (Up/Down) layouts so the same strip works
+  // whether it is rendered as a row or a sidebar.
   container.addEventListener("keydown", (e) => {
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
+    const backward = e.key === "ArrowLeft" || e.key === "ArrowUp";
+    if (!forward && !backward) return;
     const tabs = Array.from(container.querySelectorAll(".aph-tab-btn"));
     const idx = tabs.indexOf(document.activeElement);
     if (idx === -1) return;
     e.preventDefault();
-    const next = e.key === "ArrowRight"
+    const next = forward
       ? (idx + 1) % tabs.length
       : (idx - 1 + tabs.length) % tabs.length;
     tabs[next].focus();
