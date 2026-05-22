@@ -1,0 +1,195 @@
+{
+  "version": 1,
+  "releasePrefix": "20260325_anima_all_artists",
+  "imageBaseUrl": "https://cdn.mooshieblob.com",
+  "shardScheme": "first-char-slug-v1",
+  "artistCount": 48945,
+  "artistsWithImage": 43202,
+  "shards": [
+    {
+      "bucket": "0",
+      "count": 67,
+      "path": "shards/0.json"
+    },
+    {
+      "bucket": "1",
+      "count": 112,
+      "path": "shards/1.json"
+    },
+    {
+      "bucket": "2",
+      "count": 84,
+      "path": "shards/2.json"
+    },
+    {
+      "bucket": "3",
+      "count": 60,
+      "path": "shards/3.json"
+    },
+    {
+      "bucket": "4",
+      "count": 55,
+      "path": "shards/4.json"
+    },
+    {
+      "bucket": "5",
+      "count": 39,
+      "path": "shards/5.json"
+    },
+    {
+      "bucket": "6",
+      "count": 25,
+      "path": "shards/6.json"
+    },
+    {
+      "bucket": "7",
+      "count": 64,
+      "path": "shards/7.json"
+    },
+    {
+      "bucket": "8",
+      "count": 31,
+      "path": "shards/8.json"
+    },
+    {
+      "bucket": "9",
+      "count": 48,
+      "path": "shards/9.json"
+    },
+    {
+      "bucket": "a",
+      "count": 3266,
+      "path": "shards/a.json"
+    },
+    {
+      "bucket": "b",
+      "count": 1311,
+      "path": "shards/b.json"
+    },
+    {
+      "bucket": "c",
+      "count": 1771,
+      "path": "shards/c.json"
+    },
+    {
+      "bucket": "d",
+      "count": 1424,
+      "path": "shards/d.json"
+    },
+    {
+      "bucket": "e",
+      "count": 999,
+      "path": "shards/e.json"
+    },
+    {
+      "bucket": "f",
+      "count": 1083,
+      "path": "shards/f.json"
+    },
+    {
+      "bucket": "g",
+      "count": 1245,
+      "path": "shards/g.json"
+    },
+    {
+      "bucket": "h",
+      "count": 2892,
+      "path": "shards/h.json"
+    },
+    {
+      "bucket": "i",
+      "count": 1390,
+      "path": "shards/i.json"
+    },
+    {
+      "bucket": "j",
+      "count": 816,
+      "path": "shards/j.json"
+    },
+    {
+      "bucket": "k",
+      "count": 4896,
+      "path": "shards/k.json"
+    },
+    {
+      "bucket": "l",
+      "count": 1105,
+      "path": "shards/l.json"
+    },
+    {
+      "bucket": "m",
+      "count": 4852,
+      "path": "shards/m.json"
+    },
+    {
+      "bucket": "n",
+      "count": 2951,
+      "path": "shards/n.json"
+    },
+    {
+      "bucket": "o",
+      "count": 1295,
+      "path": "shards/o.json"
+    },
+    {
+      "bucket": "p",
+      "count": 1482,
+      "path": "shards/p.json"
+    },
+    {
+      "bucket": "q",
+      "count": 172,
+      "path": "shards/q.json"
+    },
+    {
+      "bucket": "r",
+      "count": 2001,
+      "path": "shards/r.json"
+    },
+    {
+      "bucket": "s",
+      "count": 5103,
+      "path": "shards/s.json"
+    },
+    {
+      "bucket": "t",
+      "count": 3136,
+      "path": "shards/t.json"
+    },
+    {
+      "bucket": "u",
+      "count": 899,
+      "path": "shards/u.json"
+    },
+    {
+      "bucket": "v",
+      "count": 298,
+      "path": "shards/v.json"
+    },
+    {
+      "bucket": "w",
+      "count": 731,
+      "path": "shards/w.json"
+    },
+    {
+      "bucket": "x",
+      "count": 271,
+      "path": "shards/x.json"
+    },
+    {
+      "bucket": "y",
+      "count": 2376,
+      "path": "shards/y.json"
+    },
+    {
+      "bucket": "z",
+      "count": 595,
+      "path": "shards/z.json"
+    }
+  ],
+  "searchIndex": {
+    "path": "search.json",
+    "entries": 48945
+  },
+  "generatedAt": "2026-05-14T23:10:46.233Z"
+}
