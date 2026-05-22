@@ -383,6 +383,8 @@ export function injectTagPalettePanel(node) {
   // Register DOM widget
   // -------------------------------------------------------------------------
   const MIN_PANEL_HEIGHT = 360;
+  const MIN_NODE_WIDTH = 680;
+  const MIN_NODE_HEIGHT = 480;
   const _panelWidget = node.addDOMWidget(
     "anima_tag_palette_panel",
     "div",
@@ -394,15 +396,64 @@ export function injectTagPalettePanel(node) {
       const h = Math.max(panelEl.scrollHeight || 480, MIN_PANEL_HEIGHT);
       return [width, h + 16];
     };
+    // Workaround for the new Vue node inspector: WidgetLegacy.vue mounts when
+    // a node is clicked and runs `widgetInstance.width = container.clientWidth`
+    // against the inspector's narrow column (~164 px). That mutation
+    // propagates back to DomWidgets.vue (`posWidget.width ?? posNode.width`)
+    // and shrinks the in-canvas panel. Make `width` writes a no-op so the
+    // DOM widget always falls back to the node's width.
+    Object.defineProperty(_panelWidget, "width", {
+      get() { return undefined; },
+      set(_v) { /* swallow inspector-driven writes */ },
+      configurable: true,
+    });
+  }
+
+  /**
+   * Enforce the panel's minimum size on the node. Called on init, after
+   * configure (workflow load), and during resize so a saved workflow with a
+   * small node — or a user drag-shrinking the node — cannot squash the panel
+   * below the width its controls need.
+   */
+  function enforceMinNodeSize() {
+    let changed = false;
+    if (node.size[0] < MIN_NODE_WIDTH) {
+      node.size[0] = MIN_NODE_WIDTH;
+      changed = true;
+    }
+    if (node.size[1] < MIN_NODE_HEIGHT) {
+      node.size[1] = MIN_NODE_HEIGHT;
+      changed = true;
+    }
+    if (changed && node.graph) {
+      node.graph.setDirtyCanvas(true, true);
+    }
   }
 
   // --- Initial node size ---
-  node.size = [
-    Math.max(node.size[0], 680),
-    Math.max(node.size[1], 480),
-  ];
+  enforceMinNodeSize();
+
+  // Re-apply the minimum after onConfigure has restored a saved (possibly
+  // smaller) size. attachPersistence() has already wrapped onConfigure, so we
+  // wrap it once more here to run last.
+  const _origOnConfigureForSize =
+    typeof node.onConfigure === "function" ? node.onConfigure.bind(node) : null;
+  node.onConfigure = function (data) {
+    if (_origOnConfigureForSize) _origOnConfigureForSize(data);
+    enforceMinNodeSize();
+  };
+
+  // Block user drags from shrinking the node below the panel's minimum.
+  const _origOnResize =
+    typeof node.onResize === "function" ? node.onResize.bind(node) : null;
+  node.onResize = function (size) {
+    if (size && size[0] < MIN_NODE_WIDTH) size[0] = MIN_NODE_WIDTH;
+    if (size && size[1] < MIN_NODE_HEIGHT) size[1] = MIN_NODE_HEIGHT;
+    if (_origOnResize) _origOnResize(size);
+  };
 
   requestAnimationFrame(() => {
+    enforceMinNodeSize();
     const h = Math.max(panelEl.scrollHeight || 480, MIN_PANEL_HEIGHT);
     const targetH = h + 60;
     if (node.size[1] < targetH) {
