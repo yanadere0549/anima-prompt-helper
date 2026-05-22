@@ -1,9 +1,10 @@
 """routes.py — aiohttp route handlers for anima-prompt-helper.
 
-Five endpoints:
+Six endpoints:
     GET  /anima_prompt_helper/palette            — serve merged tag palette
     GET  /anima_prompt_helper/spec               — serve data/anima_spec.json
     GET  /anima_prompt_helper/character_presets  — serve data/character_presets.json
+    GET  /anima_prompt_helper/artists            — serve trimmed artist suggest index
     POST /anima_prompt_helper/validate           — run validation on supplied fields
     GET  /anima_prompt_helper/health             — extension health/diagnostic report
 """
@@ -29,12 +30,14 @@ _PALETTE_PATH = _EXT_ROOT / "data" / "tag_palette.json"
 _PALETTE_EXTRAS_PATH = _EXT_ROOT / "data" / "tag_palette_extras.json"
 _SPEC_PATH = _EXT_ROOT / "data" / "anima_spec.json"
 _CHARACTER_PRESETS_PATH = _EXT_ROOT / "data" / "character_presets.json"
+_ARTISTS_SEARCH_PATH = _EXT_ROOT / "data" / "anima" / "search.json"
 _I18N_JA_PATH = _EXT_ROOT / "i18n" / "ja.json"
 
 # In-memory caches (conceptually constant after first population).
 _palette_cache: dict[str, Any] | None = None
 _spec_cache: dict[str, Any] | None = None
 _character_presets_cache: dict[str, Any] | None = None
+_artists_cache: list[dict[str, Any]] | None = None
 
 # Health: lazily-loaded version string cached after first read.
 _version_cache: str | None = None
@@ -43,6 +46,7 @@ _version_cache: str | None = None
 _palette_lock: asyncio.Lock = asyncio.Lock()
 _spec_lock: asyncio.Lock = asyncio.Lock()
 _character_presets_lock: asyncio.Lock = asyncio.Lock()
+_artists_lock: asyncio.Lock = asyncio.Lock()
 
 # Maximum accepted request body size for POST /validate (64 KB).
 _MAX_BODY_BYTES: int = 64 * 1024
@@ -108,6 +112,42 @@ def load_palette_merged() -> dict[str, Any]:
     return {"version": base.get("version", "1.0"), "categories": merged_categories}
 
 
+def load_artists_index() -> list[dict[str, Any]]:
+    """Load search.json and return a trimmed [{t, c}, ...] list for autocomplete.
+
+    Each entry keeps only the fields the suggest UI needs:
+        - ``t``: tag string (e.g. ``"@dairi"``) — kept verbatim from search.json.
+        - ``c``: post count (int) — used as the popularity rank.
+
+    Preconditions:
+        - ``_ARTISTS_SEARCH_PATH`` exists and contains a JSON array.
+    Postconditions:
+        - Returns a list sorted by ``c`` descending.
+        - Entries with empty/missing ``tag`` are dropped.
+    Raises:
+        FileNotFoundError: if search.json is absent.
+        json.JSONDecodeError: if the file is not valid JSON.
+    """
+    raw = _load_json_file(_ARTISTS_SEARCH_PATH)
+    if not isinstance(raw, list):
+        raise ValueError("search.json root must be a list")
+
+    trimmed: list[dict[str, Any]] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        tag = entry.get("tag")
+        if not isinstance(tag, str) or not tag:
+            continue
+        count = entry.get("postCount", 0)
+        if not isinstance(count, (int, float)):
+            count = 0
+        trimmed.append({"t": tag, "c": int(count)})
+
+    trimmed.sort(key=lambda e: e["c"], reverse=True)
+    return trimmed
+
+
 # ---------------------------------------------------------------------------
 # Health helpers
 # ---------------------------------------------------------------------------
@@ -167,6 +207,7 @@ def build_health_payload() -> dict[str, Any]:
         "tag_palette_extras.json": _file_info(_PALETTE_EXTRAS_PATH, False),
         "anima_spec.json": _file_info(_SPEC_PATH, _spec_cache is not None),
         "character_presets.json": _file_info(_CHARACTER_PRESETS_PATH, _character_presets_cache is not None),
+        "anima/search.json": _file_info(_ARTISTS_SEARCH_PATH, _artists_cache is not None),
         "i18n/ja.json": _file_info(_I18N_JA_PATH, False),
     }
 
@@ -200,6 +241,7 @@ def build_health_payload() -> dict[str, Any]:
         "/anima_prompt_helper/palette",
         "/anima_prompt_helper/spec",
         "/anima_prompt_helper/character_presets",
+        "/anima_prompt_helper/artists",
         "/anima_prompt_helper/validate",
         "/anima_prompt_helper/health",
     ]
@@ -218,13 +260,13 @@ def build_health_payload() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def register(routes: web.RouteTableDef) -> None:
-    """Attach all five route handlers to *routes*.
+    """Attach all six route handlers to *routes*.
 
     Preconditions:
         - ``routes`` is an ``aiohttp.web.RouteTableDef``.
     Postconditions:
-        - Five routes are registered: palette, spec, character_presets,
-          validate, health.
+        - Six routes are registered: palette, spec, character_presets,
+          artists, validate, health.
     Invariants:
         - Handlers are idempotent read-only operations.
     """
@@ -307,6 +349,43 @@ def register(routes: web.RouteTableDef) -> None:
                         {"error": "character_presets_parse_error"}, status=500
                     )
         return web.json_response(_character_presets_cache)
+
+    @routes.get("/anima_prompt_helper/artists")
+    async def get_artists(request: web.Request) -> web.Response:
+        """Serve the trimmed artist suggest index for the composer autocomplete.
+
+        Built from ``data/anima/search.json`` on first request and cached in
+        memory thereafter. Each entry is ``{"t": "@tag", "c": post_count}``,
+        sorted by ``c`` descending so popular artists appear first.
+
+        Returns:
+            200 with ``{"version": 1, "entries": [{t, c}, ...]}``,
+            503 if search.json is missing,
+            500 on parse error.
+        """
+        global _artists_cache
+        async with _artists_lock:
+            if _artists_cache is None:
+                if not _ARTISTS_SEARCH_PATH.exists():
+                    logger.warning(
+                        "anima/search.json not found at %s", _ARTISTS_SEARCH_PATH
+                    )
+                    return web.json_response(
+                        {"error": "artists_not_found"}, status=503
+                    )
+                try:
+                    _artists_cache = load_artists_index()
+                except json.JSONDecodeError as exc:
+                    logger.error("Failed to parse anima/search.json: %s", exc)
+                    return web.json_response(
+                        {"error": "artists_parse_error"}, status=500
+                    )
+                except (ValueError, OSError) as exc:
+                    logger.error("Failed to load artist index: %s", exc)
+                    return web.json_response(
+                        {"error": "artists_load_error"}, status=500
+                    )
+        return web.json_response({"version": 1, "entries": _artists_cache})
 
     @routes.post("/anima_prompt_helper/validate")
     async def post_validate(request: web.Request) -> web.Response:
@@ -405,6 +484,7 @@ def register(routes: web.RouteTableDef) -> None:
                     "/anima_prompt_helper/palette",
                     "/anima_prompt_helper/spec",
                     "/anima_prompt_helper/character_presets",
+                    "/anima_prompt_helper/artists",
                     "/anima_prompt_helper/validate",
                     "/anima_prompt_helper/health",
                 ],

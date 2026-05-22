@@ -554,3 +554,57 @@
   opacity: 1 !important;
   color: #ffd060;
 }
+
+/* =============================================================================
+   Artist suggest dropdown (anchored to the AnimaPromptComposer artist textarea)
+   ============================================================================= */
+.aph-artist-suggest {
+  position: fixed;
+  z-index: 10000;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--comfy-input-bg, #1a1a2e);
+  color: var(--input-text, #e0e0e0);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  font-family: var(--comfy-font, system-ui, -apple-system, sans-serif);
+  font-size: 12px;
+  padding: 2px 0;
+  box-sizing: border-box;
+}
+
+.aph-artist-suggest-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.aph-artist-suggest-item.active,
+.aph-artist-suggest-item:hover {
+  background: var(--p-primary-color, #7a7aff);
+  color: #ffffff;
+}
+
+.aph-artist-suggest-tag {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--comfy-mono-font, "Consolas", "Menlo", monospace);
+}
+
+.aph-artist-suggest-count {
+  flex: 0 0 auto;
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+.aph-artist-suggest-item.active .aph-artist-suggest-count,
+.aph-artist-suggest-item:hover .aph-artist-suggest-count {
+  opacity: 0.9;
+}

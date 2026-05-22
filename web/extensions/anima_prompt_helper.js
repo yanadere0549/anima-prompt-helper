@@ -11,6 +11,7 @@ import { app } from "/scripts/app.js";
 import { injectNegativePalettePanel, setNegativeCaches } from "../modules/negative_panel.js";
 import { injectTagPalettePanel, setTagPaletteCaches } from "../modules/tag_palette_panel.js";
 import { CharacterPresetStore } from "../modules/character_presets.js";
+import { setArtistList, attachArtistSuggest } from "../modules/artist_suggest.js";
 
 // --- Inject stylesheet ---
 (function injectStyles() {
@@ -25,6 +26,7 @@ import { CharacterPresetStore } from "../modules/character_presets.js";
 let paletteCache = null;
 let specCache = null;
 let characterPresetsCache = null;
+let artistsCache = null;
 
 /**
  * Fetch the palette data from the backend.
@@ -101,6 +103,31 @@ async function fetchCharacterPresets() {
   }
 }
 
+/**
+ * Fetch the trimmed artist suggest index from the backend.
+ * Returns the entries array (not the wrapper object) on success, or null
+ * on any failure so callers can degrade gracefully.
+ * @returns {Promise<Array<{t: string, c: number}>|null>}
+ */
+async function fetchArtists() {
+  try {
+    const resp = await fetch("/anima_prompt_helper/artists");
+    if (!resp.ok) {
+      console.warn("[AnimaPromptHelper] artists fetch failed:", resp.status);
+      return null;
+    }
+    const data = await resp.json();
+    if (data && Array.isArray(data.entries)) {
+      return data.entries;
+    }
+    console.warn("[AnimaPromptHelper] artists payload missing 'entries' array");
+    return null;
+  } catch (err) {
+    console.warn("[AnimaPromptHelper] artists fetch error:", err);
+    return null;
+  }
+}
+
 // --- Register the extension ---
 app.registerExtension({
   name: "AnimaPromptHelper",
@@ -110,13 +137,15 @@ app.registerExtension({
    * Lazily fetches palette and spec; caches them in module scope.
    */
   async setup() {
-    [paletteCache, specCache, characterPresetsCache] = await Promise.all([
+    [paletteCache, specCache, characterPresetsCache, artistsCache] = await Promise.all([
       fetchPalette(),
       fetchSpec(),
       fetchCharacterPresets(),
+      fetchArtists(),
     ]);
     setNegativeCaches(paletteCache, specCache);
     setTagPaletteCaches(paletteCache, specCache);
+    setArtistList(artistsCache);
 
     if (!paletteCache) {
       console.warn("[AnimaPromptHelper] setup: palette unavailable — palette panel will show error state.");
@@ -128,6 +157,11 @@ app.registerExtension({
       CharacterPresetStore.init(characterPresetsCache);
     } else {
       console.warn("[AnimaPromptHelper] setup: character presets unavailable — dropdown will show disabled.");
+    }
+    if (!artistsCache) {
+      console.warn("[AnimaPromptHelper] setup: artist suggest index unavailable — artist autocomplete disabled.");
+    } else {
+      console.info("[AnimaPromptHelper] artist suggest index loaded:", artistsCache.length, "entries");
     }
 
     // Fire-and-forget health check — surfaces extension diagnostics in DevTools.
@@ -143,7 +177,44 @@ app.registerExtension({
    * the negative palette panel into AnimaNegativePromptComposer nodes.
    */
   async beforeRegisterNodeDef(nodeType, nodeData, app) {
-    if (nodeData.name === "AnimaNegativePromptComposer") {
+    if (nodeData.name === "AnimaPromptComposer") {
+      const origOnNodeCreated = nodeType.prototype.onNodeCreated;
+      nodeType.prototype.onNodeCreated = function () {
+        if (origOnNodeCreated) {
+          origOnNodeCreated.apply(this, arguments);
+        }
+
+        const node = this;
+
+        if (artistsCache !== null) {
+          attachArtistSuggest(node);
+        } else {
+          let attempts = 0;
+          const maxAttempts = 30;
+          const retryTimer = setInterval(() => {
+            attempts++;
+            if (artistsCache !== null || attempts >= maxAttempts) {
+              clearInterval(retryTimer);
+              if (artistsCache !== null) {
+                attachArtistSuggest(node);
+              }
+            }
+          }, 100);
+
+          if (!node._aphArtistSetupTimers) node._aphArtistSetupTimers = [];
+          node._aphArtistSetupTimers.push(retryTimer);
+
+          const origOnRemoved = node.onRemoved ? node.onRemoved.bind(node) : null;
+          node.onRemoved = function () {
+            if (node._aphArtistSetupTimers) {
+              node._aphArtistSetupTimers.forEach(clearInterval);
+              node._aphArtistSetupTimers = [];
+            }
+            if (origOnRemoved) origOnRemoved();
+          };
+        }
+      };
+    } else if (nodeData.name === "AnimaNegativePromptComposer") {
       const origOnNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {
         if (origOnNodeCreated) {

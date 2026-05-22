@@ -26,6 +26,7 @@ _EXPECTED_FILES = [
     "tag_palette_extras.json",
     "anima_spec.json",
     "character_presets.json",
+    "anima/search.json",
     "i18n/ja.json",
 ]
 
@@ -33,6 +34,7 @@ _EXPECTED_ROUTES = [
     "/anima_prompt_helper/palette",
     "/anima_prompt_helper/spec",
     "/anima_prompt_helper/character_presets",
+    "/anima_prompt_helper/artists",
     "/anima_prompt_helper/validate",
     "/anima_prompt_helper/health",
 ]
@@ -92,19 +94,20 @@ def test_health_returns_degraded_when_file_missing():
 
 
 # ---------------------------------------------------------------------------
-# Test 3 — all 5 routes present in response
+# Test 3 — all 6 routes present in response
 # ---------------------------------------------------------------------------
 
-def test_health_response_includes_all_5_routes():
-    """Health payload must list all 5 registered routes."""
+def test_health_response_includes_all_routes():
+    """Health payload must list all 6 registered routes."""
     payload = build_health_payload()
 
     for route in _EXPECTED_ROUTES:
         assert route in payload["routes"], (
             f"Route '{route}' missing from health response routes list"
         )
-    assert len(payload["routes"]) == 5, (
-        f"Expected 5 routes, got {len(payload['routes'])}: {payload['routes']}"
+    assert len(payload["routes"]) == len(_EXPECTED_ROUTES), (
+        f"Expected {len(_EXPECTED_ROUTES)} routes, got "
+        f"{len(payload['routes'])}: {payload['routes']}"
     )
 
 
