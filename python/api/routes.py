@@ -13,6 +13,7 @@ Endpoints:
     DELETE /anima_prompt_helper/user_situation_presets/{id}   — delete user situation
     GET    /anima_prompt_helper/artists                       — serve trimmed artist suggest index
     POST   /anima_prompt_helper/validate                      — run validation on supplied fields
+    POST   /anima_prompt_helper/extract_metadata              — extract prompt metadata from an image
     GET    /anima_prompt_helper/health                        — extension health/diagnostic report
 """
 from __future__ import annotations
@@ -30,6 +31,7 @@ from ..composer import (
     _load_ooo_anima_defaults,
     reset_user_prefix_cache,
 )
+from ..metadata_extractor import extract_metadata
 from ..validators import validate_fields
 
 logger = logging.getLogger(__name__)
@@ -542,6 +544,7 @@ def build_health_payload() -> dict[str, Any]:
         "/anima_prompt_helper/user_prefix_presets/{id}",
         "/anima_prompt_helper/artists",
         "/anima_prompt_helper/validate",
+        "/anima_prompt_helper/extract_metadata",
         "/anima_prompt_helper/health",
     ]
 
@@ -1189,6 +1192,75 @@ def register(routes: web.RouteTableDef) -> None:
             {"issues": issues_payload, "assembled_length": assembled_length}
         )
 
+    @routes.post("/anima_prompt_helper/extract_metadata")
+    async def post_extract_metadata(request: web.Request) -> web.Response:
+        """Extract embedded prompt metadata from an uploaded image.
+
+        Accepts either ``multipart/form-data`` (file field name: ``image``)
+        or ``application/octet-stream`` (raw body). Max body size 32 MB.
+
+        Returns:
+            200 with ``{"format", "positive", "negative", "anima_fields"?}``
+            400 on missing/malformed payload or oversized body
+            500 on unexpected internal error
+        """
+        max_bytes = 32 * 1024 * 1024  # 32 MB
+        content_type = request.headers.get("Content-Type", "")
+
+        image_bytes: bytes | None = None
+
+        try:
+            if "multipart/form-data" in content_type:
+                reader = await request.multipart()
+                async for part in reader:
+                    if part.name != "image":
+                        await part.release()
+                        continue
+                    chunks: list[bytes] = []
+                    size = 0
+                    while True:
+                        chunk = await part.read_chunk(64 * 1024)
+                        if not chunk:
+                            break
+                        size += len(chunk)
+                        if size > max_bytes:
+                            return web.json_response(
+                                {"error": "body_too_large"}, status=400
+                            )
+                        chunks.append(chunk)
+                    image_bytes = b"".join(chunks)
+                    break
+            else:
+                raw = await request.read()
+                if len(raw) > max_bytes:
+                    return web.json_response(
+                        {"error": "body_too_large"}, status=400
+                    )
+                image_bytes = raw
+        except Exception as exc:
+            logger.warning("extract_metadata: failed to read body: %s", exc)
+            return web.json_response({"error": "invalid_request"}, status=400)
+
+        if not image_bytes:
+            return web.json_response({"error": "no_image"}, status=400)
+
+        try:
+            result = extract_metadata(image_bytes)
+        except Exception as exc:
+            logger.exception("extract_metadata: unexpected error: %s", exc)
+            return web.json_response({"error": "internal_error"}, status=500)
+
+        # Drop raw_chunks from the public response — large and only useful for
+        # debugging. Callers that want them can request them separately.
+        payload = {
+            "format": result.get("format", "unknown"),
+            "positive": result.get("positive", ""),
+            "negative": result.get("negative", ""),
+        }
+        if "anima_fields" in result:
+            payload["anima_fields"] = result["anima_fields"]
+        return web.json_response(payload)
+
     @routes.get("/anima_prompt_helper/health")
     async def get_health(request: web.Request) -> web.Response:
         """Return a diagnostic health/status report for the extension.
@@ -1224,6 +1296,7 @@ def register(routes: web.RouteTableDef) -> None:
                     "/anima_prompt_helper/user_prefix_presets/{id}",
                     "/anima_prompt_helper/artists",
                     "/anima_prompt_helper/validate",
+                    "/anima_prompt_helper/extract_metadata",
                     "/anima_prompt_helper/health",
                 ],
             }

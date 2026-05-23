@@ -5,6 +5,8 @@ Defines:
     AnimaPromptToConditioning    — encodes a STRING + CLIP into CONDITIONING.
     AnimaNegativePromptComposer  — assembles six negative-prompt fields into a STRING.
     AnimaTagPalette              — satellite tag palette for 26 additional categories.
+    AnimaPromptImporter          — extracts prompts from generated images and
+                                   pushes selected tags into composer fields.
 """
 from __future__ import annotations
 
@@ -423,3 +425,56 @@ class AnimaTagPalette:
                 f"tags_buffer must be str, got {type(tags_buffer).__name__!r}"
             )
         return (tags_buffer,)
+
+
+# ---------------------------------------------------------------------------
+# AnimaPromptImporter
+# ---------------------------------------------------------------------------
+
+
+class AnimaPromptImporter:
+    """Prompt-from-image importer satellite node.
+
+    The user drops a generated image onto the panel; the panel calls the
+    ``/anima_prompt_helper/extract_metadata`` endpoint to pull the embedded
+    positive / negative prompts, classifies the tokens by category (artist /
+    quality / year / count / character / series / general / natural_language /
+    rating), and offers chip-style UI to push selected tokens into a
+    same-graph AnimaPromptComposer's widgets.
+
+    The node itself only carries two internal STRING widgets that mirror the
+    last extracted prompts, so the panel state persists across workflow
+    save/load. These are also exposed as outputs for users who prefer wiring
+    the values into downstream nodes instead of clicking buttons.
+    """
+
+    CATEGORY = "Anima"
+    FUNCTION = "passthrough"
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("positive_prompt", "negative_prompt")
+    OUTPUT_NODE = False
+
+    @classmethod
+    def INPUT_TYPES(cls) -> dict:
+        return {
+            "required": {
+                "positive_buffer": ("STRING", {"multiline": True, "default": ""}),
+                "negative_buffer": ("STRING", {"multiline": True, "default": ""}),
+            },
+        }
+
+    def passthrough(
+        self, positive_buffer: str, negative_buffer: str
+    ) -> tuple[str, str]:
+        """Return the two buffer strings unchanged.
+
+        Preconditions:
+            - both arguments are str.
+        Postconditions:
+            - Returns ``(positive_buffer, negative_buffer)``.
+        """
+        if not isinstance(positive_buffer, str):
+            raise TypeError("positive_buffer must be str")
+        if not isinstance(negative_buffer, str):
+            raise TypeError("negative_buffer must be str")
+        return (positive_buffer, negative_buffer)

@@ -21,6 +21,7 @@ from python.nodes import (
     AnimaPromptToConditioning,
     AnimaNegativePromptComposer,
     AnimaTagPalette,
+    AnimaPromptImporter,
 )
 
 NODE_CLASS_MAPPINGS: dict = {
@@ -28,6 +29,7 @@ NODE_CLASS_MAPPINGS: dict = {
     "AnimaPromptToConditioning": AnimaPromptToConditioning,
     "AnimaNegativePromptComposer": AnimaNegativePromptComposer,
     "AnimaTagPalette": AnimaTagPalette,
+    "AnimaPromptImporter": AnimaPromptImporter,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS: dict = {
@@ -35,6 +37,7 @@ NODE_DISPLAY_NAME_MAPPINGS: dict = {
     "AnimaPromptToConditioning": "Anima Prompt -> Conditioning",
     "AnimaNegativePromptComposer": "Anima Negative Prompt Composer",
     "AnimaTagPalette": "Anima Tag Palette",
+    "AnimaPromptImporter": "Anima Prompt Importer",
 }
 
 WEB_DIRECTORY = "./web"

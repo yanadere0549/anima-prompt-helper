@@ -923,3 +923,260 @@
 .aph-modal-btn-danger:hover:not(:disabled) {
   background: rgba(220, 70, 70, 0.55);
 }
+
+/* =============================================================================
+   AnimaPromptImporter — prompt extraction panel
+   ============================================================================= */
+
+.aph-importer-panel {
+  gap: 8px;
+}
+
+.aph-importer-controls {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.aph-importer-controls .aph-palette-composer-select {
+  flex: 1 1 200px;
+  min-width: 150px;
+}
+
+.aph-importer-secondary-btn {
+  padding: 4px 10px;
+  background: var(--comfy-input-bg, #2a2a3e);
+  color: var(--input-text, #e0e0e0);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.aph-importer-secondary-btn:hover {
+  background: rgba(122, 122, 255, 0.18);
+  border-color: var(--p-primary-color, #7a7aff);
+}
+
+/* --- Drop zone --- */
+.aph-importer-dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+  padding: 12px;
+  border: 2px dashed rgba(160, 160, 200, 0.45);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: center;
+}
+.aph-importer-dropzone:hover,
+.aph-importer-dropzone:focus {
+  border-color: var(--p-primary-color, #7a7aff);
+  background: rgba(122, 122, 255, 0.06);
+  outline: none;
+}
+.aph-importer-drop-active {
+  border-color: var(--p-primary-color, #7a7aff) !important;
+  background: rgba(122, 122, 255, 0.16) !important;
+}
+.aph-importer-drop-hint {
+  pointer-events: none;
+  line-height: 1.5;
+  color: var(--input-text, #e0e0e0);
+}
+.aph-importer-drop-hint small {
+  color: rgba(220, 220, 220, 0.65);
+  font-size: 11px;
+}
+
+.aph-importer-preview-wrap {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.aph-importer-preview-img {
+  max-width: 100px;
+  max-height: 100px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.2);
+}
+.aph-importer-preview-meta {
+  font-size: 11px;
+  color: rgba(220, 220, 220, 0.75);
+  flex: 1 1 auto;
+  word-break: break-all;
+}
+
+/* --- Status line states --- */
+.aph-importer-status-error {
+  color: #ff9090;
+}
+
+/* --- Raw tabs + textarea --- */
+.aph-importer-raw-tabs {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+.aph-importer-raw-tab {
+  padding: 3px 12px;
+  background: var(--comfy-input-bg, #2a2a3e);
+  color: var(--input-text, #b0b0b0);
+  border: 1px solid var(--border-color, #555);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+}
+.aph-importer-raw-tab-active {
+  background: rgba(122, 122, 255, 0.22);
+  color: #fff;
+  border-color: var(--p-primary-color, #7a7aff);
+}
+.aph-importer-raw-tabs .aph-importer-secondary-btn {
+  margin-left: auto;
+}
+
+.aph-importer-raw-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 56px;
+  max-height: 200px;
+  padding: 6px 8px;
+  background: var(--comfy-input-bg, #2a2a3e);
+  color: var(--input-text, #e0e0e0);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 0 4px 4px 4px;
+  font-family: var(--comfy-monospace, ui-monospace, "Cascadia Code", monospace);
+  font-size: 12px;
+  line-height: 1.4;
+  resize: vertical;
+}
+.aph-importer-raw-textarea:focus {
+  outline: none;
+  border-color: var(--p-primary-color, #7a7aff);
+}
+
+/* --- Buckets --- */
+.aph-importer-buckets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.aph-importer-empty {
+  margin: 4px 0;
+  font-size: 12px;
+  color: rgba(220, 220, 220, 0.6);
+  text-align: center;
+  padding: 8px;
+  font-style: italic;
+}
+
+.aph-importer-bucket {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 4px;
+}
+
+.aph-importer-bucket-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+.aph-importer-bucket-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--input-text, #e0e0e0);
+}
+.aph-importer-bucket-count {
+  font-size: 11px;
+  color: rgba(220, 220, 220, 0.55);
+}
+
+.aph-importer-bucket-btn {
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--input-text, #d0d0d0);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.aph-importer-bucket-btn:hover {
+  background: rgba(122, 122, 255, 0.18);
+  border-color: var(--p-primary-color, #7a7aff);
+}
+
+.aph-importer-bucket-apply {
+  margin-left: auto;
+  padding: 2px 10px;
+  background: rgba(80, 160, 100, 0.25);
+  color: #c0ffc0;
+  border: 1px solid rgba(120, 200, 140, 0.4);
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+}
+.aph-importer-bucket-apply:hover {
+  background: rgba(80, 200, 100, 0.45);
+  border-color: rgba(140, 220, 160, 0.7);
+}
+
+/* --- Chips --- */
+.aph-importer-chip-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.aph-importer-chip {
+  padding: 2px 8px;
+  background: var(--comfy-input-bg, #2a2a3e);
+  color: var(--input-text, #d0d0d0);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.5;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.aph-importer-chip:hover {
+  background: rgba(122, 122, 255, 0.2);
+  border-color: var(--p-primary-color, #7a7aff);
+}
+.aph-importer-chip-active {
+  background: rgba(122, 200, 130, 0.28);
+  border-color: rgba(140, 220, 160, 0.7);
+  color: #e0ffd6;
+  font-weight: 500;
+}
+.aph-importer-chip-active:hover {
+  background: rgba(122, 200, 130, 0.45);
+}

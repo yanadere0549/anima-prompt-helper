@@ -14,6 +14,10 @@ import { CharacterPresetStore } from "../modules/character_presets.js";
 import { SituationPresetStore } from "../modules/situation_presets.js";
 import { PrefixPresetStore, attachPrefixPresetUI } from "../modules/prefix_presets.js";
 import { setArtistList, attachArtistSuggest } from "../modules/artist_suggest.js";
+import {
+  injectPromptImporterPanel,
+  setPromptImporterCaches,
+} from "../modules/prompt_importer_panel.js";
 
 // --- Inject stylesheet ---
 (function injectStyles() {
@@ -204,6 +208,7 @@ app.registerExtension({
     ]);
     setNegativeCaches(paletteCache, specCache);
     setTagPaletteCaches(paletteCache, specCache);
+    setPromptImporterCaches(paletteCache, characterPresetsCache);
     setArtistList(artistsCache);
 
     if (!paletteCache) {
@@ -356,6 +361,21 @@ app.registerExtension({
             if (origOnRemoved) origOnRemoved();
           };
         }
+      };
+    } else if (nodeData.name === "AnimaPromptImporter") {
+      const origOnNodeCreated = nodeType.prototype.onNodeCreated;
+      nodeType.prototype.onNodeCreated = function () {
+        if (origOnNodeCreated) {
+          origOnNodeCreated.apply(this, arguments);
+        }
+
+        const node = this;
+
+        // The importer panel works even without palette/character caches —
+        // it just can't auto-classify as accurately. So inject right away
+        // and let setPromptImporterCaches() retroactively populate the
+        // lookup maps as data becomes available.
+        injectPromptImporterPanel(node);
       };
     }
   },
