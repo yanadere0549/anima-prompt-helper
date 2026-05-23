@@ -16,6 +16,7 @@
 
 import { CharacterPresetStore, snapshotComposerFields } from "./character_presets.js";
 import { SituationPresetStore, snapshotSituationFromComposer } from "./situation_presets.js";
+import { PrefixPresetStore, snapshotPrefixFromComposer } from "./prefix_presets.js";
 
 // ---------------------------------------------------------------------------
 // Dialog: full-form editor
@@ -667,6 +668,313 @@ export async function quickSaveSituationFromComposer(composerNode) {
     return;
   }
   openSituationPresetEditor({ mode: "create", sourceComposerNode: composerNode });
+}
+
+// ---------------------------------------------------------------------------
+// Prefix preset editor
+// ---------------------------------------------------------------------------
+
+const PREFIX_RATING_OPTIONS = ["safe", "sensitive", "nsfw", "explicit"];
+
+/**
+ * Open the prefix-preset editor dialog.
+ *
+ * Saved fields: id, label, quality, year, rating (combo), extra, notes, tier.
+ * The ``extra`` field is the comma-separated string inserted immediately
+ * after ``rating`` when this preset is selected (mirroring ``default_extra``
+ * for the built-in ooo_anima_default preset).
+ *
+ * @param {Object} opts
+ * @param {"create"|"edit"} opts.mode
+ * @param {Object} [opts.preset] - existing preset when editing
+ * @param {Object} [opts.sourceComposerNode] - composer to pre-fill from
+ *                                              when creating from current state
+ */
+export function openPrefixPresetEditor(opts) {
+  closeActive();
+  const mode = opts && opts.mode === "edit" ? "edit" : "create";
+  const existing = mode === "edit" && opts && opts.preset ? opts.preset : null;
+  const snapshot = mode === "create" && opts && opts.sourceComposerNode
+    ? snapshotPrefixFromComposer(opts.sourceComposerNode)
+    : { quality: "", year: "", rating: "safe", extra: "" };
+
+  const overlay = document.createElement("div");
+  overlay.className = "aph-modal-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+
+  const dialog = document.createElement("div");
+  dialog.className = "aph-modal-dialog";
+  overlay.appendChild(dialog);
+
+  // Header
+  const header = document.createElement("div");
+  header.className = "aph-modal-header";
+  const title = document.createElement("h3");
+  title.className = "aph-modal-title";
+  title.textContent = mode === "edit"
+    ? "プリフィックスプリセットを編集"
+    : "プリフィックスプリセットを作成";
+  header.appendChild(title);
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "aph-modal-close";
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", "閉じる");
+  closeBtn.textContent = "×";
+  header.appendChild(closeBtn);
+
+  // Body
+  const body = document.createElement("div");
+  body.className = "aph-modal-body";
+
+  // ID
+  const idGroup = _formGroup("ID (英数_-, 半角)", "aph-ppe-id");
+  const idInput = document.createElement("input");
+  idInput.type = "text";
+  idInput.id = "aph-ppe-id";
+  idInput.className = "aph-modal-input";
+  idInput.maxLength = 64;
+  idInput.value = existing ? existing.id : "";
+  if (existing) idInput.disabled = true;
+  idGroup.appendChild(idInput);
+
+  // Label
+  const labelGroup = _formGroup("表示名 (Label) *", "aph-ppe-label");
+  const labelInput = document.createElement("input");
+  labelInput.type = "text";
+  labelInput.id = "aph-ppe-label";
+  labelInput.className = "aph-modal-input";
+  labelInput.maxLength = 120;
+  labelInput.value = existing ? (existing.label || "") : "";
+  labelGroup.appendChild(labelInput);
+
+  // Quality
+  const qGroup = _formGroup("Quality タグ (カンマ区切り)", "aph-ppe-quality");
+  const qInput = document.createElement("input");
+  qInput.type = "text";
+  qInput.id = "aph-ppe-quality";
+  qInput.className = "aph-modal-input";
+  qInput.maxLength = 512;
+  qInput.value = existing ? (existing.quality || "") : snapshot.quality;
+  qInput.placeholder = "masterpiece, best quality, high quality";
+  qGroup.appendChild(qInput);
+
+  // Year
+  const yGroup = _formGroup("Year / era (カンマ区切り)", "aph-ppe-year");
+  const yInput = document.createElement("input");
+  yInput.type = "text";
+  yInput.id = "aph-ppe-year";
+  yInput.className = "aph-modal-input";
+  yInput.maxLength = 256;
+  yInput.value = existing ? (existing.year || "") : snapshot.year;
+  yInput.placeholder = "newest, year 2025, year 2024";
+  yGroup.appendChild(yInput);
+
+  // Rating (combo)
+  const rGroup = _formGroup("Rating", "aph-ppe-rating");
+  const rSelect = document.createElement("select");
+  rSelect.id = "aph-ppe-rating";
+  rSelect.className = "aph-modal-input";
+  for (const r of PREFIX_RATING_OPTIONS) {
+    const o = document.createElement("option");
+    o.value = r;
+    o.textContent = r;
+    rSelect.appendChild(o);
+  }
+  const initialRating = existing
+    ? (PREFIX_RATING_OPTIONS.includes(existing.rating) ? existing.rating : "safe")
+    : (PREFIX_RATING_OPTIONS.includes(snapshot.rating) ? snapshot.rating : "safe");
+  rSelect.value = initialRating;
+  rGroup.appendChild(rSelect);
+
+  // Extra (inserted after rating)
+  const eGroup = _formGroup(
+    "Extra (rating の後に挿入, 例: game cg)", "aph-ppe-extra");
+  const eInput = document.createElement("input");
+  eInput.type = "text";
+  eInput.id = "aph-ppe-extra";
+  eInput.className = "aph-modal-input";
+  eInput.maxLength = 256;
+  eInput.value = existing ? (existing.extra || "") : snapshot.extra;
+  eGroup.appendChild(eInput);
+
+  // Notes
+  const notesGroup = _formGroup("Notes", "aph-ppe-notes");
+  const notesInput = document.createElement("textarea");
+  notesInput.id = "aph-ppe-notes";
+  notesInput.className = "aph-modal-textarea";
+  notesInput.rows = 2;
+  notesInput.maxLength = 1024;
+  notesInput.value = existing ? (existing.notes || "") : "";
+  notesGroup.appendChild(notesInput);
+
+  // Tier
+  const tierGroup = _formGroup("Tier (優先度 1-5)", "aph-ppe-tier");
+  const tierSelect = document.createElement("select");
+  tierSelect.id = "aph-ppe-tier";
+  tierSelect.className = "aph-modal-input";
+  for (let t = 5; t >= 1; t--) {
+    const o = document.createElement("option");
+    o.value = String(t);
+    o.textContent = String(t);
+    tierSelect.appendChild(o);
+  }
+  tierSelect.value = String(existing ? (existing.tier || 3) : 5);
+  tierGroup.appendChild(tierSelect);
+
+  body.appendChild(idGroup);
+  body.appendChild(labelGroup);
+  body.appendChild(qGroup);
+  body.appendChild(yGroup);
+  body.appendChild(rGroup);
+  body.appendChild(eGroup);
+  body.appendChild(notesGroup);
+  body.appendChild(tierGroup);
+
+  // Status
+  const statusEl = document.createElement("p");
+  statusEl.className = "aph-modal-status";
+  statusEl.style.display = "none";
+
+  // Footer
+  const footer = document.createElement("div");
+  footer.className = "aph-modal-footer";
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "aph-modal-btn aph-modal-btn-danger";
+  deleteBtn.textContent = "削除";
+  // Only user presets can be deleted (builtin entries are read-only).
+  if (mode !== "edit" || !existing || !existing.user) {
+    deleteBtn.style.display = "none";
+  }
+
+  const spacer = document.createElement("div");
+  spacer.style.flex = "1";
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "aph-modal-btn";
+  cancelBtn.textContent = "キャンセル";
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "aph-modal-btn aph-modal-btn-primary";
+  saveBtn.textContent = mode === "edit" ? "更新" : "保存";
+
+  footer.appendChild(deleteBtn);
+  footer.appendChild(spacer);
+  footer.appendChild(cancelBtn);
+  footer.appendChild(saveBtn);
+
+  dialog.appendChild(header);
+  dialog.appendChild(body);
+  dialog.appendChild(statusEl);
+  dialog.appendChild(footer);
+
+  if (!existing) {
+    labelInput.addEventListener("input", () => {
+      if (!idInput.dataset.userEdited) {
+        idInput.value = _slugifyLabel(labelInput.value);
+      }
+    });
+    idInput.addEventListener("input", () => {
+      idInput.dataset.userEdited = "true";
+    });
+  }
+
+  const close = () => {
+    if (overlay.parentElement) overlay.parentElement.removeChild(overlay);
+    if (_activeDialog === overlay) _activeDialog = null;
+    document.removeEventListener("keydown", onKey);
+  };
+  const onKey = (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      close();
+    }
+  };
+  document.addEventListener("keydown", onKey);
+  closeBtn.addEventListener("click", close);
+  cancelBtn.addEventListener("click", close);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) close();
+  });
+
+  saveBtn.addEventListener("click", async () => {
+    const id = idInput.value.trim();
+    const label = labelInput.value.trim();
+    if (!_isValidId(id)) {
+      _showStatus(statusEl, "ID は半角英数字 _ - のみ、1〜64文字で。", "error");
+      idInput.focus();
+      return;
+    }
+    if (id === "none" || id === "ooo_anima_default" || id === "custom") {
+      _showStatus(statusEl, "その ID は組み込み予約語のため使用できません。", "error");
+      idInput.focus();
+      return;
+    }
+    if (!label) {
+      _showStatus(statusEl, "表示名 (Label) を入力してください。", "error");
+      labelInput.focus();
+      return;
+    }
+    const payload = {
+      id,
+      label,
+      quality: qInput.value.trim(),
+      year: yInput.value.trim(),
+      rating: rSelect.value,
+      extra: eInput.value.trim(),
+      notes: notesInput.value.trim(),
+      tier: parseInt(tierSelect.value, 10) || 3,
+    };
+    saveBtn.disabled = true;
+    _showStatus(statusEl, "保存中…", "info");
+    const result = await PrefixPresetStore.saveUserPreset(payload);
+    saveBtn.disabled = false;
+    if (result.ok) {
+      _showStatus(statusEl, "保存しました。", "success");
+      setTimeout(close, 600);
+    } else {
+      _showStatus(statusEl, `保存失敗: ${result.error}`, "error");
+    }
+  });
+
+  deleteBtn.addEventListener("click", async () => {
+    if (!existing) return;
+    if (!confirm(`プリセット「${existing.label}」を削除しますか？`)) return;
+    deleteBtn.disabled = true;
+    _showStatus(statusEl, "削除中…", "info");
+    const result = await PrefixPresetStore.deleteUserPreset(existing.id);
+    deleteBtn.disabled = false;
+    if (result.ok) {
+      _showStatus(statusEl, "削除しました。", "success");
+      setTimeout(close, 500);
+    } else {
+      _showStatus(statusEl, `削除失敗: ${result.error}`, "error");
+    }
+  });
+
+  document.body.appendChild(overlay);
+  _activeDialog = overlay;
+  labelInput.focus();
+}
+
+/**
+ * Quick save: snapshot the composer's current quality/year/rating fields and
+ * open the editor pre-filled.
+ *
+ * @param {Object} composerNode
+ */
+export async function quickSavePrefixFromComposer(composerNode) {
+  if (!composerNode) return;
+  const snap = snapshotPrefixFromComposer(composerNode);
+  if (!snap.quality && !snap.year && !snap.extra) {
+    alert("quality / year / extra のいずれも空のため、保存できません。");
+    return;
+  }
+  openPrefixPresetEditor({ mode: "create", sourceComposerNode: composerNode });
 }
 
 function _formGroup(labelText, forId) {

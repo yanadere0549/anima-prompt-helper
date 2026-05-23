@@ -14,6 +14,28 @@ from . import composer as _composer
 
 logger = logging.getLogger(__name__)
 
+
+def _prefix_preset_choices() -> list[str]:
+    """Return the combo-widget choices for ``prefix_preset``.
+
+    The list always starts with the three built-in tokens and is followed
+    by any user-defined preset ids loaded from
+    ``data/user_prefix_presets.json``. Called by ``INPUT_TYPES`` each time
+    the node definition is requested, so newly-saved user presets become
+    selectable after a graph refresh without restarting ComfyUI.
+    """
+    builtin = ["none", "ooo_anima_default", "custom"]
+    try:
+        user_ids = _composer.get_user_prefix_preset_ids()
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning("Failed to load user prefix preset ids: %s", exc)
+        user_ids = []
+    # Strip any user id that collides with a built-in token (sanitize_prefix
+    # rejects these, but guard against legacy files anyway).
+    safe_user_ids = [i for i in user_ids if i not in builtin]
+    return builtin + safe_user_ids
+
+
 # ---------------------------------------------------------------------------
 # AnimaPromptComposer
 # ---------------------------------------------------------------------------
@@ -85,7 +107,7 @@ class AnimaPromptComposer:
                     {"multiline": True, "default": ""},
                 ),
                 "prefix_preset": (
-                    ["none", "ooo_anima_default", "custom"],
+                    _prefix_preset_choices(),
                     {"default": "ooo_anima_default"},
                 ),
             },

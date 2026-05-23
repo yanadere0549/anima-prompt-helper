@@ -12,6 +12,7 @@ import { injectNegativePalettePanel, setNegativeCaches } from "../modules/negati
 import { injectTagPalettePanel, setTagPaletteCaches } from "../modules/tag_palette_panel.js";
 import { CharacterPresetStore } from "../modules/character_presets.js";
 import { SituationPresetStore } from "../modules/situation_presets.js";
+import { PrefixPresetStore, attachPrefixPresetUI } from "../modules/prefix_presets.js";
 import { setArtistList, attachArtistSuggest } from "../modules/artist_suggest.js";
 
 // --- Inject stylesheet ---
@@ -28,6 +29,7 @@ let paletteCache = null;
 let specCache = null;
 let characterPresetsCache = null;
 let situationPresetsCache = null;
+let prefixPresetsCache = null;
 let artistsCache = null;
 
 /**
@@ -139,6 +141,26 @@ async function fetchSituationPresets() {
 }
 
 /**
+ * Fetch prefix presets (builtin + user) from the backend.
+ * Returns null on any failure so callers can degrade gracefully.
+ *
+ * @returns {Promise<Object|null>}
+ */
+async function fetchPrefixPresets() {
+  try {
+    const resp = await fetch("/anima_prompt_helper/prefix_presets");
+    if (!resp.ok) {
+      console.warn("[AnimaPromptHelper] prefix_presets fetch failed:", resp.status);
+      return null;
+    }
+    return await resp.json();
+  } catch (err) {
+    console.warn("[AnimaPromptHelper] prefix_presets fetch error:", err);
+    return null;
+  }
+}
+
+/**
  * Fetch the trimmed artist suggest index from the backend.
  * Returns the entries array (not the wrapper object) on success, or null
  * on any failure so callers can degrade gracefully.
@@ -172,11 +194,12 @@ app.registerExtension({
    * Lazily fetches palette and spec; caches them in module scope.
    */
   async setup() {
-    [paletteCache, specCache, characterPresetsCache, situationPresetsCache, artistsCache] = await Promise.all([
+    [paletteCache, specCache, characterPresetsCache, situationPresetsCache, prefixPresetsCache, artistsCache] = await Promise.all([
       fetchPalette(),
       fetchSpec(),
       fetchCharacterPresets(),
       fetchSituationPresets(),
+      fetchPrefixPresets(),
       fetchArtists(),
     ]);
     setNegativeCaches(paletteCache, specCache);
@@ -198,6 +221,11 @@ app.registerExtension({
       SituationPresetStore.init(situationPresetsCache);
     } else {
       console.warn("[AnimaPromptHelper] setup: situation presets unavailable — dropdown will show disabled.");
+    }
+    if (prefixPresetsCache) {
+      PrefixPresetStore.init(prefixPresetsCache);
+    } else {
+      console.warn("[AnimaPromptHelper] setup: prefix presets unavailable — editor disabled.");
     }
     if (!artistsCache) {
       console.warn("[AnimaPromptHelper] setup: artist suggest index unavailable — artist autocomplete disabled.");
@@ -226,6 +254,10 @@ app.registerExtension({
         }
 
         const node = this;
+
+        // Attach the prefix-preset edit/new buttons (and combo refresh
+        // subscription). This is independent of artistsCache.
+        attachPrefixPresetUI(node);
 
         if (artistsCache !== null) {
           attachArtistSuggest(node);

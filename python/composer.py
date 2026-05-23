@@ -101,6 +101,81 @@ class _OOOAnimaDefaultsProxy(dict):
 OOO_ANIMA_DEFAULTS: _OOOAnimaDefaultsProxy = _OOOAnimaDefaultsProxy()
 
 # ---------------------------------------------------------------------------
+# User prefix presets
+# ---------------------------------------------------------------------------
+
+# Map of user-defined prefix-preset id -> {quality, year, rating, extra}.
+# Populated lazily from data/user_prefix_presets.json on the first call to
+# _load_user_prefix_presets().
+_user_prefix_cache: dict[str, dict[str, str]] | None = None
+_user_prefix_cache_loaded: bool = False
+
+
+def _load_user_prefix_presets() -> dict[str, dict[str, str]]:
+    """Load user prefix presets from data/user_prefix_presets.json.
+
+    Returns a dict mapping preset id -> {quality, year, rating, extra}.
+    Missing file or parse errors yield an empty dict.
+    Result is cached for the process lifetime; call ``reset_user_prefix_cache()``
+    to invalidate after an API write.
+    """
+    global _user_prefix_cache, _user_prefix_cache_loaded
+    if _user_prefix_cache_loaded:
+        return _user_prefix_cache  # type: ignore[return-value]
+
+    _user_prefix_cache_loaded = True
+    path = Path(__file__).resolve().parent.parent / "data" / "user_prefix_presets.json"
+    if not path.exists():
+        _user_prefix_cache = {}
+        return _user_prefix_cache
+
+    try:
+        with path.open(encoding="utf-8") as fh:
+            data = json.load(fh)
+        result: dict[str, dict[str, str]] = {}
+        for p in data.get("presets", []) or []:
+            if not isinstance(p, dict):
+                continue
+            pid = p.get("id")
+            if not isinstance(pid, str) or not pid:
+                continue
+            result[pid] = {
+                "quality": str(p.get("quality") or ""),
+                "year": str(p.get("year") or ""),
+                "rating": str(p.get("rating") or "safe"),
+                "extra": str(p.get("extra") or ""),
+            }
+        _user_prefix_cache = result
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning(
+            "Failed to load user_prefix_presets.json (%s); treating as empty", exc
+        )
+        _user_prefix_cache = {}
+
+    return _user_prefix_cache  # type: ignore[return-value]
+
+
+def reset_user_prefix_cache() -> None:
+    """Invalidate the user prefix preset cache.
+
+    Postcondition: the next call to ``_load_user_prefix_presets()`` will
+    re-read the JSON file from disk. Safe to call from any thread because
+    the only state mutated is the module-level pair of booleans.
+    """
+    global _user_prefix_cache, _user_prefix_cache_loaded
+    _user_prefix_cache = None
+    _user_prefix_cache_loaded = False
+
+
+def get_user_prefix_preset_ids() -> list[str]:
+    """Return the sorted list of currently-known user prefix preset ids.
+
+    Used by ``nodes.py`` to advertise user-defined choices on the combo widget.
+    """
+    return sorted(_load_user_prefix_presets().keys())
+
+
+# ---------------------------------------------------------------------------
 # Negative prompt defaults
 # ---------------------------------------------------------------------------
 
@@ -234,15 +309,30 @@ def join_fields(
     extra_prefix: str = ""
 
     # Apply preset shadowing ------------------------------------------------
+    # Resolve preset to a defaults dict (quality/year/rating/extra) or None.
+    preset_defaults: dict[str, str] | None = None
     if preset == "ooo_anima_default":
-        defaults = _load_ooo_anima_defaults()
+        preset_defaults = dict(_load_ooo_anima_defaults())
+    elif preset and preset not in ("none", "custom"):
+        # Treat as a user-defined prefix preset id.
+        user_presets = _load_user_prefix_presets()
+        if preset in user_presets:
+            preset_defaults = dict(user_presets[preset])
+        else:
+            logger.info(
+                "Unknown prefix preset %r; treating as 'none' (fields pass through unchanged)",
+                preset,
+            )
+
+    if preset_defaults is not None:
         for key in ("quality", "year", "rating"):
-            default_val = defaults[key]
+            default_val = preset_defaults.get(key, "")
             original = effective.get(key, "")
             if original != default_val:
                 logger.info(
-                    "ooo_anima_default preset: shadowing field '%s' "
+                    "prefix preset '%s': shadowing field '%s' "
                     "(user value %r -> preset value %r)",
+                    preset,
                     key,
                     original,
                     default_val,
@@ -250,7 +340,7 @@ def join_fields(
             effective[key] = default_val
 
         # Capture default_extra for insertion after rating.
-        extra_prefix = defaults.get("extra", "").strip()
+        extra_prefix = (preset_defaults.get("extra", "") or "").strip()
 
     # Build the main token list (all fields except natural_language) ---------
     tag_parts: list[str] = []

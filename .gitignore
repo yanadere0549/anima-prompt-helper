@@ -49,4 +49,5 @@ data/anima_workflow_*
 # User-local presets (per-machine, never committed)
 data/user_character_presets.json
 data/user_situation_presets.json
+data/user_prefix_presets.json
 data/*.json.tmp
