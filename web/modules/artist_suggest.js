@@ -135,11 +135,35 @@ function findMatches(query) {
 }
 
 /**
+ * Public substring search over the artist index, for reuse by other panels
+ * (e.g. the artist randomizer pool editor). Case-insensitive, ignores a
+ * leading "@", ordered by postCount descending (the index is pre-sorted).
+ *
+ * @param {string} query
+ * @param {number} [limit=MAX_SUGGESTIONS]
+ * @returns {Array<{t: string, c: number}>} empty if no index or empty query
+ */
+export function searchArtists(query, limit = MAX_SUGGESTIONS) {
+  if (!hasArtistList()) return [];
+  const q = normalize(query);
+  if (!q) return [];
+  const results = [];
+  const list = _artists;
+  for (let i = 0; i < list.length; i++) {
+    if (normalize(list[i].t).indexOf(q) >= 0) {
+      results.push(list[i]);
+      if (results.length >= limit) break;
+    }
+  }
+  return results;
+}
+
+/**
  * Formats a post count for display ("18658" -> "18k", "899" -> "899").
  * @param {number} n
  * @returns {string}
  */
-function formatCount(n) {
+export function formatCount(n) {
   if (!Number.isFinite(n)) return "";
   if (n >= 10000) return Math.round(n / 1000) + "k";
   if (n >= 1000) return (n / 1000).toFixed(1) + "k";

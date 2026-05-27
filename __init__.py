@@ -22,6 +22,7 @@ from python.nodes import (
     AnimaNegativePromptComposer,
     AnimaTagPalette,
     AnimaPromptImporter,
+    AnimaArtistRandomizer,
 )
 
 NODE_CLASS_MAPPINGS: dict = {
@@ -30,6 +31,7 @@ NODE_CLASS_MAPPINGS: dict = {
     "AnimaNegativePromptComposer": AnimaNegativePromptComposer,
     "AnimaTagPalette": AnimaTagPalette,
     "AnimaPromptImporter": AnimaPromptImporter,
+    "AnimaArtistRandomizer": AnimaArtistRandomizer,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS: dict = {
@@ -38,6 +40,7 @@ NODE_DISPLAY_NAME_MAPPINGS: dict = {
     "AnimaNegativePromptComposer": "Anima Negative Prompt Composer",
     "AnimaTagPalette": "Anima Tag Palette",
     "AnimaPromptImporter": "Anima Prompt Importer",
+    "AnimaArtistRandomizer": "Anima Artist Randomizer",
 }
 
 WEB_DIRECTORY = "./web"

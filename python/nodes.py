@@ -7,11 +7,14 @@ Defines:
     AnimaTagPalette              — satellite tag palette for 26 additional categories.
     AnimaPromptImporter          — extracts prompts from generated images and
                                    pushes selected tags into composer fields.
+    AnimaArtistRandomizer        — picks N random artist tags from a saved pool
+                                   (seed-reproducible) and outputs them as STRING.
 """
 from __future__ import annotations
 
 import logging
 
+from . import artist_pool as _artist_pool
 from . import composer as _composer
 
 logger = logging.getLogger(__name__)
@@ -478,3 +481,94 @@ class AnimaPromptImporter:
         if not isinstance(negative_buffer, str):
             raise TypeError("negative_buffer must be str")
         return (positive_buffer, negative_buffer)
+
+
+# ---------------------------------------------------------------------------
+# AnimaArtistRandomizer
+# ---------------------------------------------------------------------------
+
+
+class AnimaArtistRandomizer:
+    """Random artist-tag picker satellite node.
+
+    Picks ``count`` distinct artist tags at random from a saved pool and emits
+    them as a comma-separated STRING (insert-ready, e.g. ``"@dairi, @neme"``)
+    that can be wired into an ``AnimaPromptComposer`` ``artist`` input, or
+    injected into a same-graph composer via the panel's "Composerへ挿入" button.
+
+    The ``pool`` is a comma/newline-separated buffer managed by the side panel
+    (autocomplete suggest + locally-saved named pools). When it is empty the
+    node falls back to the built-in high-score pool shipped in
+    ``data/artist_pool_default.json``, so a freshly-dropped node works
+    immediately.
+
+    Selection is fully determined by ``seed`` — the same seed + pool always
+    yields the same artists (reproducible). Pair ``seed`` with
+    ``control_after_generate`` (increment / randomize) and ComfyUI's batch
+    count to run "j times" and get j different artist sets in one queue.
+
+    Preconditions (enforced by ComfyUI):
+        - ``count`` is an int >= 1.
+        - ``seed`` is a non-negative int.
+        - ``pool`` is a str.
+    Postconditions:
+        - Returns a 1-tuple ``(str,)``; ``""`` only when both the pool and the
+          built-in default are empty.
+    """
+
+    CATEGORY = "Anima"
+    FUNCTION = "randomize"
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("artist_tags",)
+    OUTPUT_NODE = False
+
+    @classmethod
+    def INPUT_TYPES(cls) -> dict:  # type: ignore[override]
+        return {
+            "required": {
+                "count": (
+                    "INT",
+                    {"default": 1, "min": 1, "max": 50, "step": 1},
+                ),
+                "seed": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 0xFFFFFFFFFFFFFFFF,
+                        "control_after_generate": True,
+                    },
+                ),
+                # pool is an internal buffer driven by the panel UI; multiline
+                # keeps the saved tag list readable. Empty -> built-in pool.
+                "pool": ("STRING", {"multiline": True, "default": ""}),
+            },
+        }
+
+    def randomize(self, count: int, seed: int, pool: str) -> tuple[str]:
+        """Pick ``count`` random artist tags from ``pool`` (seed-reproducible).
+
+        Preconditions:
+            - ``count`` is an int, ``seed`` is an int, ``pool`` is a str.
+        Postconditions:
+            - Returns ``(str,)``; never raises for valid ComfyUI inputs.
+        """
+        tags = _artist_pool.parse_pool(pool)
+        if not tags:
+            tags = _artist_pool.load_default_pool()
+            if tags:
+                logger.debug(
+                    "AnimaArtistRandomizer: pool empty, using built-in "
+                    "default pool (%d tags)",
+                    len(tags),
+                )
+
+        if not tags:
+            logger.warning(
+                "AnimaArtistRandomizer: no artist tags available (pool empty "
+                "and default pool missing); returning empty string."
+            )
+            return ("",)
+
+        picked = _artist_pool.pick_artists(tags, count, seed)
+        return (_artist_pool.join_artists(picked),)
