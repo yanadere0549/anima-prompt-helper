@@ -11,6 +11,9 @@ Endpoints:
                                                                 situation presets
     POST   /anima_prompt_helper/user_situation_presets        — create / update user situation
     DELETE /anima_prompt_helper/user_situation_presets/{id}   — delete user situation
+    GET    /anima_prompt_helper/artist_pools                  — serve builtin + user artist pools
+    POST   /anima_prompt_helper/user_artist_pools             — create / update user artist pool
+    DELETE /anima_prompt_helper/user_artist_pools/{id}        — delete user artist pool
     GET    /anima_prompt_helper/artists                       — serve trimmed artist suggest index
     POST   /anima_prompt_helper/validate                      — run validation on supplied fields
     POST   /anima_prompt_helper/extract_metadata              — extract prompt metadata from an image
@@ -27,6 +30,7 @@ from typing import Any
 
 from aiohttp import web
 
+from ..artist_pool import load_default_pool as _load_default_artist_pool
 from ..composer import (
     _load_ooo_anima_defaults,
     reset_user_prefix_cache,
@@ -48,6 +52,7 @@ _USER_CHARACTER_PRESETS_PATH = _EXT_ROOT / "data" / "user_character_presets.json
 _SITUATION_PRESETS_PATH = _EXT_ROOT / "data" / "situation_presets.json"
 _USER_SITUATION_PRESETS_PATH = _EXT_ROOT / "data" / "user_situation_presets.json"
 _USER_PREFIX_PRESETS_PATH = _EXT_ROOT / "data" / "user_prefix_presets.json"
+_USER_ARTIST_POOLS_PATH = _EXT_ROOT / "data" / "user_artist_pools.json"
 _ARTISTS_SEARCH_PATH = _EXT_ROOT / "data" / "anima" / "search.json"
 _I18N_JA_PATH = _EXT_ROOT / "i18n" / "ja.json"
 
@@ -59,6 +64,7 @@ _user_character_presets_cache: dict[str, Any] | None = None
 _situation_presets_cache: dict[str, Any] | None = None
 _user_situation_presets_cache: dict[str, Any] | None = None
 _user_prefix_presets_cache: dict[str, Any] | None = None
+_user_artist_pools_cache: dict[str, Any] | None = None
 _artists_cache: list[dict[str, Any]] | None = None
 
 # Health: lazily-loaded version string cached after first read.
@@ -72,6 +78,7 @@ _user_character_presets_lock: asyncio.Lock = asyncio.Lock()
 _situation_presets_lock: asyncio.Lock = asyncio.Lock()
 _user_situation_presets_lock: asyncio.Lock = asyncio.Lock()
 _user_prefix_presets_lock: asyncio.Lock = asyncio.Lock()
+_user_artist_pools_lock: asyncio.Lock = asyncio.Lock()
 _artists_lock: asyncio.Lock = asyncio.Lock()
 
 # Identifier validation pattern for user-supplied preset ids.
@@ -401,6 +408,102 @@ def _sanitize_prefix_payload(raw: Any) -> dict[str, Any] | None:
     }
 
 
+# ---------------------------------------------------------------------------
+# User artist pool helpers
+# ---------------------------------------------------------------------------
+
+# Built-in pool id (matches the entry returned by GET /artist_pools).
+_DEFAULT_ARTIST_POOL_ID = "default_highscore"
+
+# Caps for a single saved pool, applied during sanitisation.
+_MAX_POOL_TAGS = 5000
+_MAX_POOL_TAG_LEN = 128
+
+
+def _load_user_artist_pools() -> dict[str, Any]:
+    """Load data/user_artist_pools.json, returning an empty shell on failure.
+
+    Postconditions:
+        - Always returns ``{"version": "1.0", "pools": [...]}``.
+        - On missing file or parse error, returns ``{"version": "1.0", "pools": []}``.
+    """
+    if not _USER_ARTIST_POOLS_PATH.exists():
+        return {"version": "1.0", "pools": []}
+    try:
+        data = _load_json_file(_USER_ARTIST_POOLS_PATH)
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning(
+            "user_artist_pools.json parse error, treating as empty: %s", exc
+        )
+        return {"version": "1.0", "pools": []}
+    if not isinstance(data, dict):
+        return {"version": "1.0", "pools": []}
+    pools = data.get("pools")
+    if not isinstance(pools, list):
+        pools = []
+    return {"version": str(data.get("version", "1.0")), "pools": pools}
+
+
+def _save_user_artist_pools(data: dict[str, Any]) -> None:
+    """Atomically write user_artist_pools.json."""
+    tmp_path = _USER_ARTIST_POOLS_PATH.with_suffix(".json.tmp")
+    with tmp_path.open("w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+    tmp_path.replace(_USER_ARTIST_POOLS_PATH)
+
+
+def _sanitize_pool_payload(raw: Any) -> dict[str, Any] | None:
+    """Validate and normalize an artist-pool dict from the client.
+
+    Returns the sanitized dict, or ``None`` if invalid.
+
+    Required: id (str matching _PRESET_ID_RE), label (str non-empty).
+    Optional: tags (list[str]; trimmed, deduped case-insensitively, capped),
+              notes (str).
+
+    The id must NOT collide with the reserved built-in pool id.
+    """
+    if not isinstance(raw, dict):
+        return None
+    pid = raw.get("id")
+    if not isinstance(pid, str) or not _PRESET_ID_RE.match(pid):
+        return None
+    if pid == _DEFAULT_ARTIST_POOL_ID:
+        return None
+    label = raw.get("label")
+    if not isinstance(label, str) or not label.strip():
+        return None
+
+    def _str(v: Any) -> str:
+        return v if isinstance(v, str) else ""
+
+    raw_tags = raw.get("tags")
+    tags: list[str] = []
+    seen: set[str] = set()
+    if isinstance(raw_tags, list):
+        for t in raw_tags:
+            if not isinstance(t, str):
+                continue
+            tag = t.strip()[:_MAX_POOL_TAG_LEN]
+            if not tag:
+                continue
+            key = tag.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            tags.append(tag)
+            if len(tags) >= _MAX_POOL_TAGS:
+                break
+
+    return {
+        "id": pid,
+        "label": label.strip()[:120],
+        "tags": tags,
+        "notes": _str(raw.get("notes"))[:1024],
+        "user": True,
+    }
+
+
 def load_artists_index() -> list[dict[str, Any]]:
     """Load search.json and return a trimmed [{t, c}, ...] list for autocomplete.
 
@@ -500,6 +603,8 @@ def build_health_payload() -> dict[str, Any]:
         "situation_presets.json": _file_info(_SITUATION_PRESETS_PATH, _situation_presets_cache is not None),
         "user_situation_presets.json": _file_info(_USER_SITUATION_PRESETS_PATH, _user_situation_presets_cache is not None),
         "user_prefix_presets.json": _file_info(_USER_PREFIX_PRESETS_PATH, _user_prefix_presets_cache is not None),
+        "user_artist_pools.json": _file_info(_USER_ARTIST_POOLS_PATH, _user_artist_pools_cache is not None),
+        "artist_pool_default.json": _file_info(_EXT_ROOT / "data" / "artist_pool_default.json", False),
         "anima/search.json": _file_info(_ARTISTS_SEARCH_PATH, _artists_cache is not None),
         "i18n/ja.json": _file_info(_I18N_JA_PATH, False),
     }
@@ -542,6 +647,9 @@ def build_health_payload() -> dict[str, Any]:
         "/anima_prompt_helper/prefix_presets",
         "/anima_prompt_helper/user_prefix_presets",
         "/anima_prompt_helper/user_prefix_presets/{id}",
+        "/anima_prompt_helper/artist_pools",
+        "/anima_prompt_helper/user_artist_pools",
+        "/anima_prompt_helper/user_artist_pools/{id}",
         "/anima_prompt_helper/artists",
         "/anima_prompt_helper/validate",
         "/anima_prompt_helper/extract_metadata",
@@ -1083,6 +1191,140 @@ def register(routes: web.RouteTableDef) -> None:
 
         return web.json_response({"deleted": True, "id": preset_id})
 
+    @routes.get("/anima_prompt_helper/artist_pools")
+    async def get_artist_pools(request: web.Request) -> web.Response:
+        """Serve the artist pools: built-in high-score pool + user pools.
+
+        The built-in entry (id ``default_highscore``, ``user: false``) is the
+        score>=0.5 pool shipped in ``data/artist_pool_default.json``. User pools
+        come from ``user_artist_pools.json``.
+
+        Returns:
+            200 with ``{"version": "1.0", "pools": [...]}``. Never 5xx.
+        """
+        global _user_artist_pools_cache
+
+        async with _user_artist_pools_lock:
+            if _user_artist_pools_cache is None:
+                _user_artist_pools_cache = _load_user_artist_pools()
+
+        try:
+            default_tags = _load_default_artist_pool()
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.warning("Failed to load default artist pool: %s", exc)
+            default_tags = []
+
+        builtin_entry = {
+            "id": _DEFAULT_ARTIST_POOL_ID,
+            "label": "High-score artists (animadex)",
+            "tags": list(default_tags),
+            "notes": "Built-in pool: animadex.net artists with score >= 0.5.",
+            "user": False,
+        }
+
+        merged: list[dict[str, Any]] = [builtin_entry]
+        for p in _user_artist_pools_cache.get("pools", []):
+            if not isinstance(p, dict) or not isinstance(p.get("id"), str):
+                continue
+            tagged = dict(p)
+            tagged["user"] = True
+            merged.append(tagged)
+
+        return web.json_response({"version": "1.0", "pools": merged})
+
+    @routes.post("/anima_prompt_helper/user_artist_pools")
+    async def post_user_artist_pool(request: web.Request) -> web.Response:
+        """Create or update a user artist pool (upsert by id).
+
+        Request body (JSON, max 256 KB):
+            {"pool": {"id": "...", "label": "...", "tags": [...], "notes": "..."}}
+
+        Returns:
+            200 with the saved pool on success,
+            400 on invalid body / oversized body / invalid pool.
+        """
+        global _user_artist_pools_cache
+
+        content_type = request.headers.get("Content-Type", "")
+        if "application/json" not in content_type:
+            return web.json_response({"error": "invalid_request"}, status=400)
+
+        try:
+            raw_bytes = await request.read()
+        except Exception as exc:
+            logger.warning("user_artist_pools: read failed: %s", exc)
+            return web.json_response({"error": "invalid_request"}, status=400)
+
+        # Pools can be large (thousands of tags); allow up to 256 KB.
+        if len(raw_bytes) > 256 * 1024:
+            return web.json_response({"error": "body_too_large"}, status=400)
+
+        try:
+            body = json.loads(raw_bytes)
+        except json.JSONDecodeError:
+            return web.json_response({"error": "invalid_json"}, status=400)
+
+        if not isinstance(body, dict) or "pool" not in body:
+            return web.json_response({"error": "invalid_request"}, status=400)
+
+        sanitized = _sanitize_pool_payload(body["pool"])
+        if sanitized is None:
+            return web.json_response({"error": "invalid_pool"}, status=400)
+
+        async with _user_artist_pools_lock:
+            data = _load_user_artist_pools()
+            pools = data.get("pools", [])
+            updated = False
+            for i, existing in enumerate(pools):
+                if isinstance(existing, dict) and existing.get("id") == sanitized["id"]:
+                    pools[i] = sanitized
+                    updated = True
+                    break
+            if not updated:
+                pools.append(sanitized)
+            data["pools"] = pools
+
+            try:
+                _save_user_artist_pools(data)
+            except OSError as exc:
+                logger.error("Failed to save user_artist_pools.json: %s", exc)
+                return web.json_response({"error": "save_failed"}, status=500)
+
+            _user_artist_pools_cache = data
+
+        return web.json_response({"pool": sanitized, "updated": updated})
+
+    @routes.delete("/anima_prompt_helper/user_artist_pools/{pool_id}")
+    async def delete_user_artist_pool(request: web.Request) -> web.Response:
+        """Delete a user artist pool by id.
+
+        Returns:
+            200 on success, 400 if id malformed, 404 if not found.
+        """
+        global _user_artist_pools_cache
+        pool_id = request.match_info.get("pool_id", "")
+        if not _PRESET_ID_RE.match(pool_id):
+            return web.json_response({"error": "invalid_id"}, status=400)
+
+        async with _user_artist_pools_lock:
+            data = _load_user_artist_pools()
+            pools = data.get("pools", [])
+            new_pools = [
+                p for p in pools
+                if not (isinstance(p, dict) and p.get("id") == pool_id)
+            ]
+            if len(new_pools) == len(pools):
+                return web.json_response({"error": "not_found"}, status=404)
+            data["pools"] = new_pools
+            try:
+                _save_user_artist_pools(data)
+            except OSError as exc:
+                logger.error("Failed to save user_artist_pools.json: %s", exc)
+                return web.json_response({"error": "save_failed"}, status=500)
+            _user_artist_pools_cache = data
+
+        return web.json_response({"deleted": True, "id": pool_id})
+
     @routes.get("/anima_prompt_helper/artists")
     async def get_artists(request: web.Request) -> web.Response:
         """Serve the trimmed artist suggest index for the composer autocomplete.
@@ -1294,6 +1536,9 @@ def register(routes: web.RouteTableDef) -> None:
                     "/anima_prompt_helper/prefix_presets",
                     "/anima_prompt_helper/user_prefix_presets",
                     "/anima_prompt_helper/user_prefix_presets/{id}",
+                    "/anima_prompt_helper/artist_pools",
+                    "/anima_prompt_helper/user_artist_pools",
+                    "/anima_prompt_helper/user_artist_pools/{id}",
                     "/anima_prompt_helper/artists",
                     "/anima_prompt_helper/validate",
                     "/anima_prompt_helper/extract_metadata",

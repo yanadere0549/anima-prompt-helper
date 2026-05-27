@@ -26,6 +26,12 @@ _EXPECTED_FILES = [
     "tag_palette_extras.json",
     "anima_spec.json",
     "character_presets.json",
+    "user_character_presets.json",
+    "situation_presets.json",
+    "user_situation_presets.json",
+    "user_prefix_presets.json",
+    "user_artist_pools.json",
+    "artist_pool_default.json",
     "anima/search.json",
     "i18n/ja.json",
 ]
@@ -34,8 +40,20 @@ _EXPECTED_ROUTES = [
     "/anima_prompt_helper/palette",
     "/anima_prompt_helper/spec",
     "/anima_prompt_helper/character_presets",
+    "/anima_prompt_helper/user_character_presets",
+    "/anima_prompt_helper/user_character_presets/{id}",
+    "/anima_prompt_helper/situation_presets",
+    "/anima_prompt_helper/user_situation_presets",
+    "/anima_prompt_helper/user_situation_presets/{id}",
+    "/anima_prompt_helper/prefix_presets",
+    "/anima_prompt_helper/user_prefix_presets",
+    "/anima_prompt_helper/user_prefix_presets/{id}",
+    "/anima_prompt_helper/artist_pools",
+    "/anima_prompt_helper/user_artist_pools",
+    "/anima_prompt_helper/user_artist_pools/{id}",
     "/anima_prompt_helper/artists",
     "/anima_prompt_helper/validate",
+    "/anima_prompt_helper/extract_metadata",
     "/anima_prompt_helper/health",
 ]
 
@@ -43,6 +61,9 @@ _EXPECTED_NODE_CLASSES = [
     "AnimaPromptComposer",
     "AnimaPromptToConditioning",
     "AnimaNegativePromptComposer",
+    "AnimaTagPalette",
+    "AnimaPromptImporter",
+    "AnimaArtistRandomizer",
 ]
 
 

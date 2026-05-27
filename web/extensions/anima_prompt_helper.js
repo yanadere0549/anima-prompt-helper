@@ -18,6 +18,8 @@ import {
   injectPromptImporterPanel,
   setPromptImporterCaches,
 } from "../modules/prompt_importer_panel.js";
+import { ArtistPoolStore, fetchArtistPools } from "../modules/artist_pools.js";
+import { injectArtistRandomizerPanel } from "../modules/artist_randomizer_panel.js";
 
 // --- Inject stylesheet ---
 (function injectStyles() {
@@ -35,6 +37,7 @@ let characterPresetsCache = null;
 let situationPresetsCache = null;
 let prefixPresetsCache = null;
 let artistsCache = null;
+let artistPoolsCache = null;
 
 /**
  * Fetch the palette data from the backend.
@@ -198,13 +201,14 @@ app.registerExtension({
    * Lazily fetches palette and spec; caches them in module scope.
    */
   async setup() {
-    [paletteCache, specCache, characterPresetsCache, situationPresetsCache, prefixPresetsCache, artistsCache] = await Promise.all([
+    [paletteCache, specCache, characterPresetsCache, situationPresetsCache, prefixPresetsCache, artistsCache, artistPoolsCache] = await Promise.all([
       fetchPalette(),
       fetchSpec(),
       fetchCharacterPresets(),
       fetchSituationPresets(),
       fetchPrefixPresets(),
       fetchArtists(),
+      fetchArtistPools(),
     ]);
     setNegativeCaches(paletteCache, specCache);
     setTagPaletteCaches(paletteCache, specCache);
@@ -236,6 +240,13 @@ app.registerExtension({
       console.warn("[AnimaPromptHelper] setup: artist suggest index unavailable — artist autocomplete disabled.");
     } else {
       console.info("[AnimaPromptHelper] artist suggest index loaded:", artistsCache.length, "entries");
+    }
+    if (artistPoolsCache) {
+      ArtistPoolStore.init(artistPoolsCache);
+      const nPools = Array.isArray(artistPoolsCache.pools) ? artistPoolsCache.pools.length : 0;
+      console.info("[AnimaPromptHelper] artist pools loaded:", nPools, "pool(s)");
+    } else {
+      console.warn("[AnimaPromptHelper] setup: artist pools unavailable — randomizer uses built-in default only.");
     }
 
     // Fire-and-forget health check — surfaces extension diagnostics in DevTools.
@@ -376,6 +387,18 @@ app.registerExtension({
         // and let setPromptImporterCaches() retroactively populate the
         // lookup maps as data becomes available.
         injectPromptImporterPanel(node);
+      };
+    } else if (nodeData.name === "AnimaArtistRandomizer") {
+      const origOnNodeCreated = nodeType.prototype.onNodeCreated;
+      nodeType.prototype.onNodeCreated = function () {
+        if (origOnNodeCreated) {
+          origOnNodeCreated.apply(this, arguments);
+        }
+        // The panel works with the built-in default pool even before the
+        // ArtistPoolStore / artist suggest index finish loading; it reads
+        // from the store live, so a later store init is picked up via the
+        // subscribe() hook in the panel.
+        injectArtistRandomizerPanel(this);
       };
     }
   },

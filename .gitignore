@@ -50,4 +50,5 @@ data/anima_workflow_*
 data/user_character_presets.json
 data/user_situation_presets.json
 data/user_prefix_presets.json
+data/user_artist_pools.json
 data/*.json.tmp
