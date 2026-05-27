@@ -19,7 +19,10 @@ import {
   setPromptImporterCaches,
 } from "../modules/prompt_importer_panel.js";
 import { ArtistPoolStore, fetchArtistPools } from "../modules/artist_pools.js";
-import { injectArtistRandomizerPanel } from "../modules/artist_randomizer_panel.js";
+import {
+  injectArtistRandomizerPanel,
+  populateArtistRandomizers,
+} from "../modules/artist_randomizer_panel.js";
 
 // --- Inject stylesheet ---
 (function injectStyles() {
@@ -247,6 +250,24 @@ app.registerExtension({
       console.info("[AnimaPromptHelper] artist pools loaded:", nPools, "pool(s)");
     } else {
       console.warn("[AnimaPromptHelper] setup: artist pools unavailable — randomizer uses built-in default only.");
+    }
+
+    // --- Queue-time hook: populate each AnimaArtistRandomizer's `picked`
+    // widget right before the prompt is built. graphToPrompt runs once per
+    // batch iteration *after* control_after_generate has advanced the seed,
+    // so each queued prompt records a fresh, seed-determined artist selection
+    // in its workflow / prompt metadata. ---
+    if (!app._aphGraphToPromptPatched && typeof app.graphToPrompt === "function") {
+      app._aphGraphToPromptPatched = true;
+      const origGraphToPrompt = app.graphToPrompt.bind(app);
+      app.graphToPrompt = async function (...args) {
+        try {
+          populateArtistRandomizers(app.graph);
+        } catch (err) {
+          console.warn("[AnimaPromptHelper] populateArtistRandomizers failed:", err);
+        }
+        return origGraphToPrompt(...args);
+      };
     }
 
     // Fire-and-forget health check — surfaces extension diagnostics in DevTools.

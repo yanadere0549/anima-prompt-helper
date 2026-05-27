@@ -11,6 +11,65 @@
 
 export const DEFAULT_POOL_ID = "default_highscore";
 
+/**
+ * Parse a comma/newline-separated pool string into a de-duplicated tag array
+ * (case-insensitive). Mirrors python/artist_pool.py::parse_pool.
+ * @param {string} raw
+ * @returns {string[]}
+ */
+export function parsePoolString(raw) {
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  const out = [];
+  const seen = new Set();
+  for (const chunk of raw.replace(/\n/g, ",").split(",")) {
+    const t = chunk.trim();
+    if (!t) continue;
+    const key = t.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+  }
+  return out;
+}
+
+/** Deterministic PRNG (mulberry32) seeded by a 32-bit integer. */
+function _mulberry32(a) {
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Deterministically pick ``count`` distinct tags from ``tags`` using ``seed``.
+ * Reproducible: same tags + count + seed always yields the same result. Used
+ * both for the panel preview and the queue-time ``picked`` population, so the
+ * preview matches what is recorded in image metadata.
+ *
+ * @param {string[]} tags
+ * @param {number} count
+ * @param {number} seed
+ * @returns {string[]}
+ */
+export function seededPickArtists(tags, count, seed) {
+  if (!Array.isArray(tags) || !tags.length || count <= 0) return [];
+  const pool = tags.slice();
+  const rng = _mulberry32((seed >>> 0) || 0);
+  const k = Math.min(count, pool.length);
+  const out = [];
+  for (let i = 0; i < k; i++) {
+    const j = i + Math.floor(rng() * (pool.length - i));
+    const tmp = pool[i];
+    pool[i] = pool[j];
+    pool[j] = tmp;
+    out.push(pool[i]);
+  }
+  return out;
+}
+
 let _poolsById = {};
 let _sortedPools = [];
 const _listeners = [];

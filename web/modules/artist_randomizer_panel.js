@@ -21,7 +21,11 @@
  */
 
 import { addTagToField } from "./composer.js";
-import { ArtistPoolStore } from "./artist_pools.js";
+import {
+  ArtistPoolStore,
+  DEFAULT_POOL_ID,
+  seededPickArtists,
+} from "./artist_pools.js";
 import {
   searchArtists,
   formatArtistTagForInsert,
@@ -82,25 +86,64 @@ function setPoolTags(node, tags) {
   } catch (_) { /* ignore */ }
 }
 
-/** Read the node's ``count`` widget value (>= 1). */
-function getCount(node) {
+/** Read a numeric widget by name with a fallback. */
+function _intWidget(node, name, fallback) {
   const w = Array.isArray(node.widgets)
-    ? node.widgets.find((x) => x.name === "count")
+    ? node.widgets.find((x) => x.name === name)
     : null;
-  const n = w ? parseInt(w.value, 10) : 1;
-  return Number.isFinite(n) && n >= 1 ? n : 1;
+  const n = w ? parseInt(w.value, 10) : fallback;
+  return Number.isFinite(n) ? n : fallback;
 }
 
-/** Client-side random sample without replacement (preview / manual insert). */
-function sampleN(arr, n) {
-  const pool = arr.slice();
-  const k = Math.min(n, pool.length);
-  const out = [];
-  for (let i = 0; i < k; i++) {
-    const idx = Math.floor(Math.random() * pool.length);
-    out.push(pool.splice(idx, 1)[0]);
+/** Read the node's ``count`` widget value (>= 1). */
+function getCount(node) {
+  return Math.max(1, _intWidget(node, "count", 1));
+}
+
+/** Read the node's ``seed`` widget value (>= 0). */
+function getSeed(node) {
+  return Math.max(0, _intWidget(node, "seed", 0));
+}
+
+/** The node's active tags: its pool, or the built-in default pool if empty. */
+function getActiveTags(node) {
+  const tags = getPoolTags(node);
+  if (tags.length) return tags;
+  const builtin = ArtistPoolStore.getById(DEFAULT_POOL_ID);
+  return builtin ? (builtin.tags || []).slice() : [];
+}
+
+/** Write the comma-joined picks into the node's serialized ``picked`` widget. */
+function setPickedWidget(node, value) {
+  const w = Array.isArray(node.widgets)
+    ? node.widgets.find((x) => x.name === "picked")
+    : null;
+  if (!w) return;
+  w.value = value;
+  const el = w.element || w.inputEl;
+  if (el) {
+    el.value = value;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
   }
-  return out;
+}
+
+/**
+ * Populate the ``picked`` widget of every AnimaArtistRandomizer node in the
+ * graph from its pool, count and seed. Called from the ``app.graphToPrompt``
+ * hook at queue time so the chosen artists are serialized into the workflow /
+ * prompt and embedded in the saved image's metadata.
+ *
+ * @param {Object} graph - LiteGraph graph instance
+ */
+export function populateArtistRandomizers(graph) {
+  if (!graph || !Array.isArray(graph._nodes)) return;
+  for (const node of graph._nodes) {
+    if (!node || node.type !== "AnimaArtistRandomizer") continue;
+    const tags = getActiveTags(node);
+    if (!tags.length) { setPickedWidget(node, ""); continue; }
+    const picked = seededPickArtists(tags, getCount(node), getSeed(node));
+    setPickedWidget(node, picked.join(", "));
+  }
 }
 
 /** Same-graph AnimaPromptComposer nodes. */
@@ -128,13 +171,19 @@ function _slugifyId(label) {
  * @param {Object} node - AnimaArtistRandomizer LiteGraph node instance
  */
 export function injectArtistRandomizerPanel(node) {
-  // --- Hide the pool widget (managed via the panel) ---
-  const poolW = _poolWidget(node);
-  if (poolW) {
-    poolW.computeSize = () => [0, -4];
-    poolW.hidden = true;
-    if (poolW.element instanceof HTMLElement) poolW.element.style.display = "none";
-    if (poolW.inputEl instanceof HTMLElement) poolW.inputEl.style.display = "none";
+  // --- Hide the pool + picked widgets (both managed via the panel) ---
+  // ``picked`` is still serialized while hidden, so the artists chosen at
+  // queue time land in the workflow / prompt metadata even though the widget
+  // is not shown; the panel surfaces them in the preview area instead.
+  for (const name of ["pool", "picked"]) {
+    const w = Array.isArray(node.widgets)
+      ? node.widgets.find((x) => x.name === name)
+      : null;
+    if (!w) continue;
+    w.computeSize = () => [0, -4];
+    w.hidden = true;
+    if (w.element instanceof HTMLElement) w.element.style.display = "none";
+    if (w.inputEl instanceof HTMLElement) w.inputEl.style.display = "none";
   }
 
   const panelEl = document.createElement("div");
@@ -455,10 +504,11 @@ export function injectArtistRandomizerPanel(node) {
   });
 
   rollBtn.addEventListener("click", () => {
-    const tags = getPoolTags(node);
+    const tags = getActiveTags(node);
     if (!tags.length) { previewEl.textContent = "(プールが空)"; return; }
-    const picked = sampleN(tags, getCount(node));
-    previewEl.textContent = picked.join(", ");
+    // Seed-based: this matches exactly what generation will pick (and record).
+    const picked = seededPickArtists(tags, getCount(node), getSeed(node));
+    previewEl.textContent = `seed ${getSeed(node)}: ${picked.join(", ")}`;
   });
 
   insertBtn.addEventListener("click", () => {
@@ -473,9 +523,9 @@ export function injectArtistRandomizerPanel(node) {
       setStatus("Composer の artist は接続済みです。出力ポートを配線してください。", true);
       return;
     }
-    const tags = getPoolTags(node);
+    const tags = getActiveTags(node);
     if (!tags.length) { setStatus("プールが空です。", true); return; }
-    const picked = sampleN(tags, getCount(node));
+    const picked = seededPickArtists(tags, getCount(node), getSeed(node));
     for (const t of picked) addTagToField(composer, "artist", t);
     previewEl.textContent = picked.join(", ");
     setStatus(`#${composerId} の artist 欄に ${picked.length} 絵師を挿入しました。`, false);

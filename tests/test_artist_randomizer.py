@@ -112,13 +112,29 @@ def test_node_category_and_io():
 def test_node_input_types():
     schema = AnimaArtistRandomizer.INPUT_TYPES()
     req = schema["required"]
-    assert set(req) == {"count", "seed", "pool"}
+    assert set(req) == {"count", "seed", "pool", "picked"}
     assert req["count"][0] == "INT"
     assert req["seed"][0] == "INT"
     # seed must expose the control_after_generate combo so re-queuing reshuffles
     assert req["seed"][1].get("control_after_generate") is True
     assert req["pool"][0] == "STRING"
     assert req["pool"][1].get("multiline") is True
+    assert req["picked"][0] == "STRING"
+
+
+def test_randomize_returns_picked_verbatim_when_present():
+    """GUI path: a pre-populated ``picked`` value is returned unchanged,
+    regardless of count / seed / pool (so output matches image metadata)."""
+    node = AnimaArtistRandomizer()
+    out = node.randomize(2, 999, "@a, @b, @c", picked="@chosen_one, @and_two")
+    assert out == ("@chosen_one, @and_two",)
+
+
+def test_randomize_ignores_blank_picked_and_falls_back():
+    """Whitespace-only ``picked`` is treated as absent -> seeded selection."""
+    node = AnimaArtistRandomizer()
+    out = node.randomize(1, 0, "@only", picked="   ")
+    assert out == ("@only",)
 
 
 # ---------------------------------------------------------------------------

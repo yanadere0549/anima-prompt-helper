@@ -159,6 +159,11 @@ def _extract_from_comfyui_prompt(prompt_json: dict) -> dict[str, Any] | None:
     anima_negative: str | None = None
     anima_fields: dict[str, str] | None = None
     text_widgets: list[str] = []
+    # Artist tags chosen by AnimaArtistRandomizer nodes. The composer's
+    # ``artist`` field is usually a link to the randomizer output (so it is not
+    # a literal string here); the actual artists live in the randomizer's
+    # ``picked`` widget, which it records into the image metadata at queue time.
+    randomizer_picked: list[str] = []
 
     for node in prompt_json.values():
         if not isinstance(node, dict):
@@ -208,6 +213,10 @@ def _extract_from_comfyui_prompt(prompt_json: dict) -> dict[str, Any] | None:
                     parts.append(v.strip())
             if parts:
                 anima_negative = ", ".join(parts)
+        elif class_type == "AnimaArtistRandomizer":
+            picked = inputs.get("picked")
+            if isinstance(picked, str) and picked.strip():
+                randomizer_picked.append(picked.strip())
         elif class_type in _COMFYUI_TEXT_NODE_CLASSES:
             t = inputs.get("text") or inputs.get("text_g") or inputs.get("text_l")
             if isinstance(t, str) and t.strip():
@@ -217,6 +226,30 @@ def _extract_from_comfyui_prompt(prompt_json: dict) -> dict[str, Any] | None:
             t = inputs.get("text")
             if isinstance(t, str) and t.strip() and ("," in t or len(t) > 24):
                 text_widgets.append(t.strip())
+
+    # Merge artists chosen by any AnimaArtistRandomizer into the artist field
+    # (and the positive text), de-duplicated case-insensitively. The composer's
+    # own artist link contributes nothing here, so this is what surfaces the
+    # randomized artists in the importer's "Artist / 絵師" bucket.
+    if randomizer_picked:
+        existing_artist = (anima_fields or {}).get("artist", "")
+        merged: list[str] = []
+        seen: set[str] = set()
+        for source in ([existing_artist] if existing_artist else []) + randomizer_picked:
+            for tok in source.split(","):
+                t = tok.strip()
+                if t and t.lower() not in seen:
+                    seen.add(t.lower())
+                    merged.append(t)
+        if merged:
+            artist_str = ", ".join(merged)
+            if anima_fields is None:
+                anima_fields = {}
+            anima_fields["artist"] = artist_str
+            if anima_positive:
+                anima_positive = anima_positive + ", " + artist_str
+            else:
+                anima_positive = artist_str
 
     positive = anima_positive
     negative = anima_negative
@@ -377,6 +410,12 @@ def extract_metadata(image_bytes: bytes) -> dict[str, Any]:
                         for i, name in enumerate(names):
                             if i < len(wvals) and isinstance(wvals[i], str):
                                 inputs[name] = wvals[i]
+                    elif ctype == "AnimaArtistRandomizer" and isinstance(wvals, list):
+                        # widget order: count, seed, control_after_generate,
+                        # pool, picked. picked (index 4) holds the artists
+                        # chosen for the run; pool (index 3) is the full pool.
+                        if len(wvals) >= 5 and isinstance(wvals[4], str):
+                            inputs["picked"] = wvals[4]
                     elif ctype in _COMFYUI_TEXT_NODE_CLASSES and isinstance(wvals, list):
                         # First string widget is the prompt text.
                         for v in wvals:

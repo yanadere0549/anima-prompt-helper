@@ -6,12 +6,16 @@
 - **AnimaArtistRandomizer node** — picks `count` random artist tags from a locally-saved pool and outputs them as an insert-ready STRING (`artist_tags`), wireable into an `AnimaPromptComposer` `artist` input.
   - **Seed-reproducible** selection (`seed` widget with `control_after_generate`). Pair with ComfyUI's batch count to run "j times" and get j different artist sets per queue.
   - Falls back to the **built-in high-score pool** when the pool is empty, so a freshly-dropped node works immediately.
+  - **Chosen artists are embedded in image metadata** — a serialized `picked` widget is populated at queue time (via an `app.graphToPrompt` hook, per batch iteration, using a deterministic seeded RNG) so the actual artists land in the saved PNG's workflow / prompt. Python returns `picked` verbatim when present; headless / API callers fall back to the seeded Python selection. Panel 🎲 試し引き now previews the exact seed-based pick.
+  - `web/modules/artist_pools.js`: `parsePoolString` / `seededPickArtists` (mulberry32) shared by the panel preview and queue-time population. `artist_randomizer_panel.js`: exported `populateArtistRandomizers(graph)`.
 - **Built-in high-score pool** `data/artist_pool_default.json` — 3,195 artist tags with animadex.net quality `score >= 0.5`, mapped to canonical Anima tags via `data/anima/search.json`. Regenerable with `scripts/fetch_artist_pool.py`.
 - **Locally-saved artist pools** — `GET /anima_prompt_helper/artist_pools` (builtin + user), `POST /anima_prompt_helper/user_artist_pools`, `DELETE /anima_prompt_helper/user_artist_pools/{id}`; stored in `data/user_artist_pools.json` (gitignored).
 - **Artist randomizer panel** (`web/modules/artist_randomizer_panel.js`) — pool source dropdown (load / 💾 save / 🗑 delete), autocomplete artist add (reuses the artist suggest index), removable chip list, 🎲 試し引き preview, and 「artist欄へ挿入」 into a same-graph composer.
 - `python/artist_pool.py`: `parse_pool` / `pick_artists` (seeded, no-replacement) / `load_default_pool` / `join_artists`.
 - `web/modules/artist_pools.js`: `ArtistPoolStore` singleton + `fetchArtistPools`. `web/modules/artist_suggest.js`: exported `searchArtists` / `formatCount` for reuse.
 - 30 new tests (`tests/test_artist_randomizer.py`, `tests/test_api_artist_pools.py`).
+
+- **Prompt Importer recognises randomizer artists** — `python/metadata_extractor.py` now reads `AnimaArtistRandomizer`'s `picked` value (the composer's `artist` field is a link, so the literal artists live on the randomizer) and merges it into `anima_fields["artist"]` + the positive text, both in the `prompt` and `workflow` extraction paths. Dropping such an image into the Prompt Importer now surfaces the artists in the "Artist / 絵師" bucket.
 
 ### Fixed
 - `tests/test_api_health.py`: synced the stale `_EXPECTED_ROUTES` / `_EXPECTED_NODE_CLASSES` / `_EXPECTED_FILES` lists with the current routes and node classes (the routes assertion had drifted out of sync).

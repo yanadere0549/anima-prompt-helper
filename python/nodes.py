@@ -507,6 +507,11 @@ class AnimaArtistRandomizer:
     ``control_after_generate`` (increment / randomize) and ComfyUI's batch
     count to run "j times" and get j different artist sets in one queue.
 
+    In the GUI the chosen artists are written into the ``picked`` widget at
+    queue time, so they are serialized into the workflow / prompt and embedded
+    in the saved image's metadata — you can always see which artists produced
+    an image. ``randomize`` returns ``picked`` verbatim when present.
+
     Preconditions (enforced by ComfyUI):
         - ``count`` is an int >= 1.
         - ``seed`` is a non-negative int.
@@ -542,17 +547,35 @@ class AnimaArtistRandomizer:
                 # pool is an internal buffer driven by the panel UI; multiline
                 # keeps the saved tag list readable. Empty -> built-in pool.
                 "pool": ("STRING", {"multiline": True, "default": ""}),
+                # picked holds the artists chosen for THIS run. In the GUI the
+                # panel JS fills it at queue time (via the graphToPrompt hook),
+                # so the actual selection is serialized into the workflow / API
+                # prompt and therefore embedded in the saved image's metadata —
+                # making it possible to see which artists produced an image.
+                # Left empty for headless / API callers, in which case Python
+                # falls back to its own seeded selection below.
+                "picked": ("STRING", {"multiline": False, "default": ""}),
             },
         }
 
-    def randomize(self, count: int, seed: int, pool: str) -> tuple[str]:
-        """Pick ``count`` random artist tags from ``pool`` (seed-reproducible).
+    def randomize(
+        self, count: int, seed: int, pool: str, picked: str = ""
+    ) -> tuple[str]:
+        """Return the artist tags for this run (seed-reproducible).
 
         Preconditions:
-            - ``count`` is an int, ``seed`` is an int, ``pool`` is a str.
+            - ``count`` and ``seed`` are ints; ``pool`` and ``picked`` are str.
         Postconditions:
             - Returns ``(str,)``; never raises for valid ComfyUI inputs.
+            - When ``picked`` is non-empty (GUI path) it is returned verbatim so
+              the output matches exactly what was recorded in the image metadata.
+            - Otherwise (headless / API) a fresh seeded selection from ``pool``
+              (or the built-in default pool) is returned.
         """
+        # GUI path: the panel already chose and recorded the artists.
+        if isinstance(picked, str) and picked.strip():
+            return (picked.strip(),)
+
         tags = _artist_pool.parse_pool(pool)
         if not tags:
             tags = _artist_pool.load_default_pool()
@@ -570,5 +593,5 @@ class AnimaArtistRandomizer:
             )
             return ("",)
 
-        picked = _artist_pool.pick_artists(tags, count, seed)
-        return (_artist_pool.join_artists(picked),)
+        chosen = _artist_pool.pick_artists(tags, count, seed)
+        return (_artist_pool.join_artists(chosen),)
