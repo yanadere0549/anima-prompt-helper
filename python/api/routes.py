@@ -50,6 +50,7 @@ _PALETTE_PATH = _EXT_ROOT / "data" / "tag_palette.json"
 _PALETTE_EXTRAS_PATH = _EXT_ROOT / "data" / "tag_palette_extras.json"
 _SPEC_PATH = _EXT_ROOT / "data" / "anima_spec.json"
 _CHARACTER_PRESETS_PATH = _EXT_ROOT / "data" / "character_presets.json"
+_ANIMADEX_CHARACTER_PRESETS_PATH = _EXT_ROOT / "data" / "animadex_character_presets.json"
 _USER_CHARACTER_PRESETS_PATH = _EXT_ROOT / "data" / "user_character_presets.json"
 _SITUATION_PRESETS_PATH = _EXT_ROOT / "data" / "situation_presets.json"
 _USER_SITUATION_PRESETS_PATH = _EXT_ROOT / "data" / "user_situation_presets.json"
@@ -66,6 +67,7 @@ _I18N_JA_PATH = _EXT_ROOT / "i18n" / "ja.json"
 _palette_cache: dict[str, Any] | None = None
 _spec_cache: dict[str, Any] | None = None
 _character_presets_cache: dict[str, Any] | None = None
+_animadex_character_presets_cache: dict[str, Any] | None = None
 _user_character_presets_cache: dict[str, Any] | None = None
 _situation_presets_cache: dict[str, Any] | None = None
 _user_situation_presets_cache: dict[str, Any] | None = None
@@ -82,6 +84,7 @@ _version_cache: str | None = None
 _palette_lock: asyncio.Lock = asyncio.Lock()
 _spec_lock: asyncio.Lock = asyncio.Lock()
 _character_presets_lock: asyncio.Lock = asyncio.Lock()
+_animadex_character_presets_lock: asyncio.Lock = asyncio.Lock()
 _user_character_presets_lock: asyncio.Lock = asyncio.Lock()
 _situation_presets_lock: asyncio.Lock = asyncio.Lock()
 _user_situation_presets_lock: asyncio.Lock = asyncio.Lock()
@@ -182,6 +185,32 @@ def _load_user_character_presets() -> dict[str, Any]:
     return {"version": str(data.get("version", "1.0")), "presets": presets}
 
 
+def _load_animadex_character_presets() -> dict[str, Any]:
+    """Load data/animadex_character_presets.json, returning an empty shell on failure.
+
+    Preconditions: none (path may or may not exist).
+    Postconditions:
+        - Always returns a dict with shape ``{"version": "1.0", "presets": [...]}``.
+        - On missing file: returns ``{"version": "1.0", "presets": []}`` silently.
+        - On parse error: logs a warning and returns the empty shell.
+    """
+    if not _ANIMADEX_CHARACTER_PRESETS_PATH.exists():
+        return {"version": "1.0", "presets": []}
+    try:
+        data = _load_json_file(_ANIMADEX_CHARACTER_PRESETS_PATH)
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning(
+            "animadex_character_presets.json parse error, treating as empty: %s", exc
+        )
+        return {"version": "1.0", "presets": []}
+    if not isinstance(data, dict):
+        return {"version": "1.0", "presets": []}
+    presets = data.get("presets")
+    if not isinstance(presets, list):
+        presets = []
+    return {"version": str(data.get("version", "1.0")), "presets": presets}
+
+
 def _save_user_character_presets(data: dict[str, Any]) -> None:
     """Atomically write user_character_presets.json.
 
@@ -238,6 +267,7 @@ def _sanitize_preset_payload(raw: Any) -> dict[str, Any] | None:
         "series": _str(raw.get("series"))[:512],
         "essential_general_tags": _str_list(raw.get("essential_general_tags"))[:64],
         "recommended_artists": _str_list(raw.get("recommended_artists"))[:32],
+        "prompt_example": _str(raw.get("prompt_example", ""))[:2048],
         "notes": _str(raw.get("notes"))[:1024],
         "tier": tier,
         "user": True,
@@ -789,6 +819,7 @@ def build_health_payload() -> dict[str, Any]:
         "tag_palette_extras.json": _file_info(_PALETTE_EXTRAS_PATH, False),
         "anima_spec.json": _file_info(_SPEC_PATH, _spec_cache is not None),
         "character_presets.json": _file_info(_CHARACTER_PRESETS_PATH, _character_presets_cache is not None),
+        "animadex_character_presets.json": _file_info(_ANIMADEX_CHARACTER_PRESETS_PATH, _animadex_character_presets_cache is not None),
         "user_character_presets.json": _file_info(_USER_CHARACTER_PRESETS_PATH, _user_character_presets_cache is not None),
         "situation_presets.json": _file_info(_SITUATION_PRESETS_PATH, _situation_presets_cache is not None),
         "user_situation_presets.json": _file_info(_USER_SITUATION_PRESETS_PATH, _user_situation_presets_cache is not None),
@@ -935,17 +966,19 @@ def register(routes: web.RouteTableDef) -> None:
 
     @routes.get("/anima_prompt_helper/character_presets")
     async def get_character_presets(request: web.Request) -> web.Response:
-        """Serve the character presets, merging builtin + user files.
+        """Serve the character presets, merging builtin + animadex + user files.
 
-        Builtin presets get ``"user": False``; user presets get ``"user": True``.
-        User presets override builtin entries with the same id.
+        Priority (last writer wins): builtin < animadex < user.
+        Builtin and animadex presets get ``"user": False``; user presets get
+        ``"user": True``. ``source`` is set to "builtin", "animadex", or "user"
+        respectively.
 
         Returns:
             200 with {"version", "presets": [...]},
             503 if builtin file missing,
             500 on parse error.
         """
-        global _character_presets_cache, _user_character_presets_cache
+        global _character_presets_cache, _animadex_character_presets_cache, _user_character_presets_cache
         async with _character_presets_lock:
             if _character_presets_cache is None:
                 if not _CHARACTER_PRESETS_PATH.exists():
@@ -964,24 +997,37 @@ def register(routes: web.RouteTableDef) -> None:
                         {"error": "character_presets_parse_error"}, status=500
                     )
 
+        async with _animadex_character_presets_lock:
+            if _animadex_character_presets_cache is None:
+                _animadex_character_presets_cache = _load_animadex_character_presets()
+
         async with _user_character_presets_lock:
             if _user_character_presets_cache is None:
                 _user_character_presets_cache = _load_user_character_presets()
 
-        builtin_presets = list(_character_presets_cache.get("presets", []))
-        user_presets = list(_user_character_presets_cache.get("presets", []))
+        builtin = list(_character_presets_cache.get("presets", []))
+        animadex = list(_animadex_character_presets_cache.get("presets", []))
+        user = list(_user_character_presets_cache.get("presets", []))
 
-        # Tag builtin entries and merge: user presets override by id.
+        # 3-layer merge: builtin < animadex < user (last writer wins by id).
         by_id: dict[str, dict[str, Any]] = {}
-        for p in builtin_presets:
+        for p in builtin:
             if isinstance(p, dict) and isinstance(p.get("id"), str):
                 tagged = dict(p)
                 tagged.setdefault("user", False)
+                tagged.setdefault("source", "builtin")
                 by_id[p["id"]] = tagged
-        for p in user_presets:
+        for p in animadex:
+            if isinstance(p, dict) and isinstance(p.get("id"), str):
+                tagged = dict(p)
+                tagged["user"] = False
+                tagged.setdefault("source", "animadex")
+                by_id[p["id"]] = tagged
+        for p in user:
             if isinstance(p, dict) and isinstance(p.get("id"), str):
                 tagged = dict(p)
                 tagged["user"] = True
+                tagged["source"] = "user"
                 by_id[p["id"]] = tagged
 
         merged = list(by_id.values())

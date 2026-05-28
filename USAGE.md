@@ -520,9 +520,20 @@ In the randomizer panel:
 - **AnimaSituationRandomizer built-in pool** (`data/situation_pool_default.json`): situation/scene tags sourced from Danbooru general tags. Regenerable with `scripts/fetch_situation_pool.py`.
 - **AnimaArtistRandomizer built-in pool** (`data/artist_pool_default.json`): artist tags from animadex.net with quality score ≥ 0.5. Regenerable with `scripts/fetch_artist_pool.py`.
 
+### Meta information auto-insert (AnimaCharacterRandomizer)
+
+When using the **「character欄へ挿入」** button in the AnimaCharacterRandomizer panel, a **「メタ情報も挿入 (series/general/prompt_example)」** checkbox appears to the right of the button.
+
+| Checkbox state | Behavior |
+|---|---|
+| ON (default) | After inserting the character tag(s), the panel looks up each picked tag in the animadex character preset database (300 entries in `data/animadex_character_presets.json`). For each matched preset, it appends `series`, `essential_general_tags`, and `recommended_artists` into the corresponding Composer fields. If the preset has a `prompt_example`, it is written into the `natural_language` field. |
+| OFF | Only the character tag(s) are inserted; no other Composer fields are modified. |
+
+**Preset not matched:** If a randomly picked character tag does not have a matching preset in the animadex database, the panel silently skips meta insertion for that tag and inserts only the character tag itself. The status line shows how many tags had a matching preset (e.g. "メタ情報: 2/3 キャラ").
+
 ### Note on character presets vs character randomizer
 
-The **character presets** (available in the AnimaTagPalette panel dropdown) are curated fixed entries that fill `character`, `series`, and `general` fields simultaneously from a hand-picked list of 49 characters. The **Anima Character Randomizer** is a separate node that randomly selects from a larger pool of character tags and outputs only to the `character` field. Use presets when you want a specific known character with all associated tags pre-filled; use the randomizer when you want to explore a wide variety of characters unpredictably.
+The **character presets** (available in the AnimaTagPalette panel dropdown) are curated fixed entries that fill `character`, `series`, and `general` fields simultaneously from a hand-picked list of 49 characters. The **Anima Character Randomizer** is a separate node that randomly selects from a larger pool of character tags and outputs only to the `character` field, with optional meta auto-insert from the 300-preset animadex database. Use presets when you want a specific known character with all associated tags pre-filled; use the randomizer when you want to explore a wide variety of characters unpredictably.
 
 ---
 

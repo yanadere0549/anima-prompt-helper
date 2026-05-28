@@ -69,6 +69,9 @@ anima-prompt-helper/
 │   ├── tag_palette_extras.json       Extra category tags merged at runtime.
 │   ├── anima_spec.json               Canonical order, presets, validation rule params.
 │   ├── character_presets.json        49 curated character preset entries.
+│   ├── animadex_character_presets.json  300 animadex-sourced character presets (second
+│   │                                 built-in layer; merged below user presets).
+│   │                                 Regenerate: fetch_animadex_character_details.py.
 │   ├── artist_pool_default.json      Built-in artist pool (3,195 tags, animadex.net
 │   │                                 score >= 0.5). Regenerate: fetch_artist_pool.py.
 │   ├── character_pool_default.json   Built-in character pool (~3,349 animadex.net
@@ -90,6 +93,8 @@ anima-prompt-helper/
 │   ├── test_routes.py                Integration tests for the core API route handlers
 │   │                                 (uses aiohttp test client; mocks data file reads).
 │   ├── test_api_health.py            Tests for GET /health (routes, node classes, files).
+│   ├── test_api_animadex_character_presets.py  13 tests for animadex preset loading,
+│   │                                 3-layer merge, and prompt_example sanitization.
 │   ├── test_nodes_tag_palette.py     Tests for AnimaTagPalette INPUT_TYPES/passthrough.
 │   ├── test_parity.py                JS/Python prompt assembly parity tests.
 │   ├── test_artist_randomizer.py     Unit tests for artist_pool.py pick logic.
@@ -106,6 +111,9 @@ anima-prompt-helper/
 │   │                                 rebuilds data/character_pool_default.json.
 │   ├── fetch_situation_pool.py       Fetches Danbooru general tags and rebuilds
 │   │                                 data/situation_pool_default.json.
+│   ├── fetch_animadex_character_details.py  Fetches per-character detail from
+│   │                                 animadex.net and rebuilds
+│   │                                 data/animadex_character_presets.json.
 │   ├── check_data_integrity.py       Validates palette and spec JSON structure (runs in CI).
 │   ├── benchmark_composer.py         Benchmarks join_fields() and join_negative_fields().
 │   ├── run_all_checks.ps1 / .sh      Run all local CI checks (py_compile, pytest,

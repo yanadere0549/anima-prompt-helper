@@ -26,6 +26,7 @@ _EXPECTED_FILES = [
     "tag_palette_extras.json",
     "anima_spec.json",
     "character_presets.json",
+    "animadex_character_presets.json",
     "user_character_presets.json",
     "situation_presets.json",
     "user_situation_presets.json",

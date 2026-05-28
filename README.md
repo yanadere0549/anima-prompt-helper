@@ -64,7 +64,7 @@ Pass `-Force` / `--force` to overwrite previously installed copies, or `-DryRun`
 | Anima Prompt -> Conditioning | `AnimaPromptToConditioning` | Encode a composed prompt string into a CONDITIONING tensor using a CLIP model. | `CONDITIONING`, `STRING (positive_prompt)` |
 | Anima Negative Prompt Composer | `AnimaNegativePromptComposer` | Compose a negative prompt from six structured categories with model-specific preset overrides. | `STRING (negative_prompt)` |
 | Anima Artist Randomizer | `AnimaArtistRandomizer` | Pick N random artist tags from a saved pool (built-in or user-defined); wire into the `artist` field of AnimaPromptComposer. | `STRING (artist_tags)` |
-| Anima Character Randomizer | `AnimaCharacterRandomizer` | Pick N random character tags from a saved pool (built-in ~3349 animadex.net 1girl entries); wire into the `character` field of AnimaPromptComposer. | `STRING (character_tags)` |
+| Anima Character Randomizer | `AnimaCharacterRandomizer` | Pick N random character tags from a saved pool (built-in ~3349 animadex.net 1girl entries); wire into the `character` field of AnimaPromptComposer. When inserting, the optional "メタ情報も挿入" checkbox auto-fills series/general/artist fields and `natural_language` from the matching animadex character preset (300 presets bundled). | `STRING (character_tags)` |
 | Anima Situation Randomizer | `AnimaSituationRandomizer` | Pick N random situation/scene tags from a saved pool (built-in ~293 Danbooru general tags); wire into the `general` field of AnimaPromptComposer. | `STRING (situation_tags)` |
 
 ---

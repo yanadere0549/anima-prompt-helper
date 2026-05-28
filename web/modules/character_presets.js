@@ -158,8 +158,34 @@ function _notify() {
   }
 }
 
+/**
+ * Find a preset whose `character` field matches `characterTag` (case-insensitive,
+ * trimmed). Useful for linking a randomizer-picked tag to its meta preset.
+ *
+ * Preconditions:
+ *   - `characterTag` is a string.
+ * Postconditions:
+ *   - Returns the first matching preset, or null if none.
+ *   - Comparison normalizes whitespace and lowercases both sides.
+ *
+ * @param {string} characterTag
+ * @returns {Object|null}
+ */
+function findPresetByCharacter(characterTag) {
+  if (typeof characterTag !== "string") return null;
+  const key = characterTag.trim().toLowerCase();
+  if (!key) return null;
+  for (const p of _sortedPresets) {
+    if (typeof p.character === "string" &&
+        p.character.trim().toLowerCase() === key) {
+      return p;
+    }
+  }
+  return null;
+}
+
 export const CharacterPresetStore = {
-  init, getAll, getById, saveUserPreset, deleteUserPreset, subscribe,
+  init, getAll, getById, findPresetByCharacter, saveUserPreset, deleteUserPreset, subscribe,
 };
 
 /**

@@ -1303,3 +1303,17 @@
 .aph-ar-status-error {
   color: #ff9a9a;
 }
+.aph-ar-meta-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--descrip-text, #b0b0c0);
+  cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.aph-ar-meta-toggle input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--p-primary-color, #7a7aff);
+}

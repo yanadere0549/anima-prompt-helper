@@ -28,6 +28,7 @@ import {
   DEFAULT_POOL_ID,
   seededPickTags,
 } from "./character_pools.js";
+import { CharacterPresetStore } from "./character_presets.js";
 
 // Hard cap on how many chips we render at once — large pools would stall the
 // canvas.
@@ -181,6 +182,40 @@ function _slugifyId(label) {
 }
 
 // ---------------------------------------------------------------------------
+// Natural language field helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Overwrite the natural_language widget on a Composer node.
+ *
+ * Preconditions:
+ *   - composer is a LiteGraph node instance (or null/undefined → no-op).
+ *   - value is a non-empty string.
+ * Postconditions:
+ *   - The natural_language widget value equals `value`.
+ *   - An 'input' event is dispatched on the underlying DOM element (if any).
+ *
+ * @param {Object} composer
+ * @param {string} value
+ */
+function _setNaturalLanguage(composer, value) {
+  if (!composer || !Array.isArray(composer.widgets)) return;
+  const w = composer.widgets.find((x) => x.name === "natural_language");
+  if (!w) return;
+  w.value = value;
+  const el = w.element || w.inputEl;
+  if (el) {
+    el.value = value;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  try {
+    if (composer.graph && typeof composer.graph.setDirtyCanvas === "function") {
+      composer.graph.setDirtyCanvas(true, true);
+    }
+  } catch (_) { /* ignore */ }
+}
+
+// ---------------------------------------------------------------------------
 // Panel injection
 // ---------------------------------------------------------------------------
 
@@ -280,7 +315,15 @@ export function injectCharacterRandomizerPanel(node) {
   const insertBtn = document.createElement("button");
   insertBtn.className = "aph-btn aph-ar-insert-btn";
   insertBtn.textContent = "character欄へ挿入";
-  targetRow.append(composerSelect, insertBtn);
+  const metaToggleLabel = document.createElement("label");
+  metaToggleLabel.className = "aph-ar-meta-toggle";
+  const metaToggleInput = document.createElement("input");
+  metaToggleInput.type = "checkbox";
+  metaToggleInput.checked = true;
+  const metaToggleText = document.createElement("span");
+  metaToggleText.textContent = "メタ情報も挿入 (series/general/prompt_example)";
+  metaToggleLabel.append(metaToggleInput, metaToggleText);
+  targetRow.append(composerSelect, insertBtn, metaToggleLabel);
 
   // --- Status line ---
   const statusEl = document.createElement("div");
@@ -481,7 +524,42 @@ export function injectCharacterRandomizerPanel(node) {
     const picked = seededPickTags(tags, getCount(node), getSeed(node));
     for (const t of picked) addTagToField(composer, "character", t);
     previewEl.textContent = picked.join(", ");
-    setStatus(`#${composerId} の character 欄に ${picked.length} キャラを挿入しました。`, false);
+
+    // Meta insertion (series / general / artist / prompt_example)
+    if (metaToggleInput.checked) {
+      const promptExamples = [];
+      let metaCount = 0;
+      for (const t of picked) {
+        const preset = CharacterPresetStore.findPresetByCharacter(t);
+        if (!preset) continue;
+        metaCount++;
+        if (preset.series) addTagToField(composer, "series", preset.series);
+        const generalTags = Array.isArray(preset.essential_general_tags)
+          ? preset.essential_general_tags : [];
+        for (const g of generalTags) {
+          if (g && typeof g === "string") addTagToField(composer, "general", g);
+        }
+        const artists = Array.isArray(preset.recommended_artists)
+          ? preset.recommended_artists : [];
+        for (const a of artists) {
+          if (a && typeof a === "string") addTagToField(composer, "artist", a);
+        }
+        if (preset.prompt_example && typeof preset.prompt_example === "string" &&
+            preset.prompt_example.trim()) {
+          promptExamples.push(preset.prompt_example.trim());
+        }
+      }
+      if (promptExamples.length > 0) {
+        _setNaturalLanguage(composer, promptExamples.join("\n"));
+      }
+      setStatus(
+        `#${composerId} の character 欄に ${picked.length} キャラを挿入しました。` +
+        (metaCount > 0 ? ` (メタ情報: ${metaCount}/${picked.length} キャラ)` : ""),
+        false
+      );
+    } else {
+      setStatus(`#${composerId} の character 欄に ${picked.length} キャラを挿入しました。`, false);
+    }
   });
 
   // -------------------------------------------------------------------------

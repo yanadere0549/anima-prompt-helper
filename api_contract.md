@@ -187,7 +187,7 @@ All routes are registered on `PromptServer.instance.routes` (aiohttp `RouteTable
 
 ## Route 4: GET /anima_prompt_helper/character_presets
 
-**Purpose:** Serve the character preset list verbatim.
+**Purpose:** Serve the merged character preset list (builtin + animadex + user, 3-layer merge).
 
 ### Request
 - Method: `GET`
@@ -195,31 +195,67 @@ All routes are registered on `PromptServer.instance.routes` (aiohttp `RouteTable
 - Body: none
 
 ### Preconditions
-- `data/character_presets.json` exists and is valid JSON.
+- `data/character_presets.json` (builtin, 49 entries) exists and is valid JSON.
+- `data/animadex_character_presets.json` (animadex, 300 entries) may or may not exist (absent → treated as empty layer).
+- `data/user_character_presets.json` may or may not exist (absent → treated as empty layer).
+
+### Merge semantics
+
+Presets are merged in priority order: **builtin < animadex < user** (last writer wins by `id`). A user preset with the same `id` as an animadex preset overrides it; an animadex preset with the same `id` as a builtin preset overrides it.
 
 ### Response (200 OK)
 ```json
 {
   "version": "1.0",
   "presets": [
-    { "id": "hatsune_miku", "label": "Hatsune Miku", "tags": "hatsune miku, vocaloid" }
+    {
+      "id": "hatsune_miku",
+      "label": "Hatsune Miku",
+      "character": "hatsune miku",
+      "series": "vocaloid",
+      "essential_general_tags": ["aqua hair", "twintails"],
+      "recommended_artists": [],
+      "prompt_example": "hatsune miku, aqua hair, vocaloid",
+      "notes": "",
+      "tier": 5,
+      "user": false,
+      "source": "builtin"
+    },
+    {
+      "id": "animadex_hatsune_miku",
+      "label": "Hatsune Miku (animadex)",
+      "character": "hatsune miku",
+      "series": "vocaloid",
+      "essential_general_tags": ["aqua hair"],
+      "recommended_artists": [],
+      "prompt_example": "hatsune miku, aqua hair",
+      "notes": "",
+      "tier": 5,
+      "user": false,
+      "source": "animadex"
+    }
   ]
 }
 ```
+
+`source`: `"builtin"` | `"animadex"` | `"user"` — which layer the preset originated from.
+`user`: `false` for builtin and animadex presets; `true` for user-saved presets.
+`prompt_example`: optional natural-language prompt string (empty string if absent); max 2048 chars.
 
 ### Error responses
 
 | Status | Body | Condition |
 |--------|------|-----------|
-| 503 | `{"error":"character_presets_not_found"}` | File missing |
-| 500 | `{"error":"character_presets_parse_error"}` | Invalid JSON |
+| 503 | `{"error":"character_presets_not_found"}` | `data/character_presets.json` missing |
+| 500 | `{"error":"character_presets_parse_error"}` | Invalid JSON in builtin file |
 
 ### Postconditions
-- Cached in-memory after first read; invalidated only on server restart.
+- Builtin and animadex files cached in-memory after first read; invalidated only on server restart.
+- User presets file re-read on every request (no caching) so that POST saves are reflected immediately.
 
 ### Invariants
 - Content-Type: `application/json`.
-- Handler never modifies the file.
+- Handler never modifies any preset file.
 
 ---
 

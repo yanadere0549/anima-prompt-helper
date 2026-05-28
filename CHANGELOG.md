@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Added
+- **`data/animadex_character_presets.json`** — 300 animadex-sourced character presets distributed as the built-in second layer of the `GET /character_presets` response (builtin < animadex < user merge). Each preset carries `character`, `series`, `essential_general_tags`, `recommended_artists`, `prompt_example`, and `source: "animadex"` fields.
+- **`_sanitize_preset_payload`** now accepts and caps the `prompt_example` field (string, max 2048 chars). Missing or non-string values default to `""`.
+- **`findPresetByCharacter(characterTag)`** added to `CharacterPresetStore` in `web/modules/character_presets.js` — looks up a preset by exact (case-insensitive, trimmed) `character` field match; returns the first match or `null`.
+- **「メタ情報も挿入」チェックボックス** added to the AnimaCharacterRandomizer panel (`web/modules/character_randomizer_panel.js`). When checked (default ON), clicking 「character欄へ挿入」 also injects `series`, `essential_general_tags`, `recommended_artists`, and `prompt_example` from the matched animadex preset into the target Composer.
+- **`.aph-ar-meta-toggle`** style added to `web/styles/anima_prompt_helper.css` for the new checkbox label.
+- **`scripts/fetch_animadex_character_details.py`** — utility script for regenerating `data/animadex_character_presets.json` from animadex.net.
+- **`tests/test_api_animadex_character_presets.py`** — 13 tests covering `_load_animadex_character_presets`, 3-layer merge logic, and `_sanitize_preset_payload` prompt_example handling.
+
 - **AnimaArtistRandomizer node** — picks `count` random artist tags from a locally-saved pool and outputs them as an insert-ready STRING (`artist_tags`), wireable into an `AnimaPromptComposer` `artist` input.
   - **Seed-reproducible** selection (`seed` widget with `control_after_generate`). Pair with ComfyUI's batch count to run "j times" and get j different artist sets per queue.
   - Falls back to the **built-in high-score pool** when the pool is empty, so a freshly-dropped node works immediately.
