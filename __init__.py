@@ -23,6 +23,8 @@ from python.nodes import (
     AnimaTagPalette,
     AnimaPromptImporter,
     AnimaArtistRandomizer,
+    AnimaCharacterRandomizer,
+    AnimaSituationRandomizer,
 )
 
 NODE_CLASS_MAPPINGS: dict = {
@@ -32,6 +34,8 @@ NODE_CLASS_MAPPINGS: dict = {
     "AnimaTagPalette": AnimaTagPalette,
     "AnimaPromptImporter": AnimaPromptImporter,
     "AnimaArtistRandomizer": AnimaArtistRandomizer,
+    "AnimaCharacterRandomizer": AnimaCharacterRandomizer,
+    "AnimaSituationRandomizer": AnimaSituationRandomizer,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS: dict = {
@@ -41,6 +45,8 @@ NODE_DISPLAY_NAME_MAPPINGS: dict = {
     "AnimaTagPalette": "Anima Tag Palette",
     "AnimaPromptImporter": "Anima Prompt Importer",
     "AnimaArtistRandomizer": "Anima Artist Randomizer",
+    "AnimaCharacterRandomizer": "Anima Character Randomizer",
+    "AnimaSituationRandomizer": "Anima Situation Randomizer",
 }
 
 WEB_DIRECTORY = "./web"

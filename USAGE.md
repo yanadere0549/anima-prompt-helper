@@ -14,9 +14,10 @@ This guide covers everything you need to know to use the anima-prompt-helper ext
 6. [Walkthrough 5: Using character presets](#6-walkthrough-5-using-character-presets)
 7. [Walkthrough 6: Negative prompt composition](#7-walkthrough-6-negative-prompt-composition)
 8. [Walkthrough 7: Using Anima Tag Palette](#8-walkthrough-7-using-anima-tag-palette)
-9. [Tips and tricks](#9-tips-and-tricks)
-10. [Pitfalls to avoid](#10-pitfalls-to-avoid)
-11. [Frequently asked questions](#11-frequently-asked-questions)
+9. [Walkthrough 8: Using the randomizer nodes](#9-walkthrough-8-using-the-randomizer-nodes)
+10. [Tips and tricks](#10-tips-and-tricks)
+11. [Pitfalls to avoid](#11-pitfalls-to-avoid)
+12. [Frequently asked questions](#12-frequently-asked-questions)
 
 ---
 
@@ -457,7 +458,75 @@ The `negative_prompt` STRING output carries the assembled or preset-overridden n
 
 ---
 
-## 8. Tips and tricks
+## 9. Walkthrough 8: Using the randomizer nodes
+
+Three randomizer nodes let you pull random tags from curated pools and wire them directly into an `AnimaPromptComposer` field. They are independent nodes — separate from the character presets and the tag palette — and designed for exploration and batch variety.
+
+### The three randomizer nodes
+
+| Node | Class | Output widget | Default target field | Built-in pool source |
+|---|---|---|---|---|
+| Anima Artist Randomizer | `AnimaArtistRandomizer` | `artist_tags` | `artist` | animadex.net score ≥ 0.5 (3,195 tags) |
+| Anima Character Randomizer | `AnimaCharacterRandomizer` | `character_tags` | `character` | animadex.net 1girl characters (~3,349 tags) |
+| Anima Situation Randomizer | `AnimaSituationRandomizer` | `situation_tags` | `general` | Danbooru general tags (~293 tags) |
+
+### Pool types: built-in vs user pools
+
+Each randomizer ships with a built-in default pool stored in `data/` (e.g. `data/character_pool_default.json`). You can also create, name, save, and delete your own pools via the in-node panel. User pools are stored in `data/user_character_pools.json` (and the equivalent files for artist and situation pools); these files are gitignored so they stay local to your machine.
+
+The `pool_source` widget lists all available pools for that node type. When the selected pool is empty or has been deleted, the node automatically falls back to the built-in default pool.
+
+### Step 1: Add a randomizer node
+
+Right-click the canvas → **Add Node** → **Anima** → choose **Anima Character Randomizer**, **Anima Situation Randomizer**, or **Anima Artist Randomizer**.
+
+### Step 2: Configure count and seed
+
+- Set `count` to the number of tags you want picked per generation (e.g. `1` for a single character, `3` for three situation tags).
+- Set `seed` to a fixed integer for reproducible results, or enable `control_after_generate` → `randomize` so each queue uses a fresh seed.
+
+### Step 3: Select a pool
+
+Use the `pool_source` dropdown to pick a pool. To use the built-in defaults, leave it set to `default`. To use your own pool, build one in the panel (add tags, then click **Save**) and select it by name.
+
+### Step 4: Wire the output into AnimaPromptComposer
+
+Connect the output STRING from the randomizer to the matching field on an `AnimaPromptComposer`:
+
+```
+[Anima Character Randomizer] --character_tags--> [AnimaPromptComposer] character
+[Anima Situation Randomizer] --situation_tags--> [AnimaPromptComposer] general
+[Anima Artist Randomizer]    --artist_tags-----> [AnimaPromptComposer] artist
+```
+
+When a Composer field is connected this way, the widget for that field becomes a `forceInput` port and the randomizer's output value flows through at queue time.
+
+### Step 5: Preview before queuing
+
+Each randomizer panel has a **試し引き** (preview pick) button that runs the seeded selection immediately so you can see which tags would be picked without queuing a generation.
+
+### Managing user pools
+
+In the randomizer panel:
+- **Add tags** — type a tag name into the input box and press Enter or click **Add**. For artist pools, the `@` prefix is required.
+- **Remove tags** — click the `x` on any tag chip in the list.
+- **Save** — click the **Save** (💾) button, enter a pool name, and confirm. The pool is written to the user pools JSON file.
+- **Load** — select an existing pool from the `pool_source` dropdown.
+- **Delete** — select a pool and click the **Delete** (🗑) button. The built-in pool cannot be deleted.
+
+### Data sources
+
+- **AnimaCharacterRandomizer built-in pool** (`data/character_pool_default.json`): character tags sourced from animadex.net 1girl entries. Regenerable with `scripts/fetch_character_pool.py`.
+- **AnimaSituationRandomizer built-in pool** (`data/situation_pool_default.json`): situation/scene tags sourced from Danbooru general tags. Regenerable with `scripts/fetch_situation_pool.py`.
+- **AnimaArtistRandomizer built-in pool** (`data/artist_pool_default.json`): artist tags from animadex.net with quality score ≥ 0.5. Regenerable with `scripts/fetch_artist_pool.py`.
+
+### Note on character presets vs character randomizer
+
+The **character presets** (available in the AnimaTagPalette panel dropdown) are curated fixed entries that fill `character`, `series`, and `general` fields simultaneously from a hand-picked list of 49 characters. The **Anima Character Randomizer** is a separate node that randomly selects from a larger pool of character tags and outputs only to the `character` field. Use presets when you want a specific known character with all associated tags pre-filled; use the randomizer when you want to explore a wide variety of characters unpredictably.
+
+---
+
+## 10. Tips and tricks
 
 ### Artist `@` rule
 
@@ -501,7 +570,7 @@ The **Clothing** and **General** categories have many tags. Type a few letters i
 
 ---
 
-## 9. Validation cheatsheet
+## 11. Validation cheatsheet
 
 Each rule fires under a specific condition. The examples below show the exact input that triggers each badge.
 
@@ -522,7 +591,7 @@ Rules that are exempt from specific fields:
 
 ---
 
-## 10. API examples
+## 12. API examples
 
 All routes are served at `http://localhost:8188` by default. Adjust the host/port if ComfyUI is running elsewhere.
 
@@ -578,7 +647,7 @@ A clean prompt returns `"issues": []` with only `assembled_length` present.
 
 ---
 
-## 11. Pitfalls to avoid
+## 13. Pitfalls to avoid
 
 ### Using underscored tags (except `score_N`)
 
@@ -626,7 +695,7 @@ The `ooo_anima_default` preset overrides only `quality`, `year`, and `rating`. T
 
 ---
 
-## 12. Frequently asked questions
+## 14. Frequently asked questions
 
 **Q: Do I need to fill all nine fields?**
 
@@ -731,7 +800,7 @@ Yes. The extension is cross-platform. The Python backend has no Windows-specific
 
 ---
 
-## 13. Reference: complete tag palette contents
+## 15. Reference: complete tag palette contents
 
 This section lists all tags available in the palette at the time of writing. The palette is loaded dynamically from `data/tag_palette.json` at runtime, so this list reflects the bundled data file.
 
@@ -866,7 +935,7 @@ These are sentence-length template strings inserted verbatim into the `natural_l
 
 ---
 
-## 14. Reference: prompt assembly algorithm
+## 16. Reference: prompt assembly algorithm
 
 Understanding the exact assembly logic helps when debugging unexpected output.
 
@@ -918,7 +987,7 @@ When `prefix_preset` is `none`:
 
 ---
 
-## 15. Reference: validation rule details
+## 17. Reference: validation rule details
 
 This section expands on the validation rules with additional context for each rule.
 
@@ -986,7 +1055,7 @@ This section expands on the validation rules with additional context for each ru
 
 ---
 
-## 16. Reference: HTTP API
+## 18. Reference: HTTP API
 
 For users who want to interact with the extension programmatically (e.g. from scripts, other custom nodes, or testing), here is a condensed reference for the three HTTP routes.
 
@@ -1115,7 +1184,7 @@ The endpoint is read-only and deterministic: identical input always produces ide
 
 ---
 
-## 17. Reference: workflow serialization
+## 19. Reference: workflow serialization
 
 Saving and loading a ComfyUI workflow JSON file preserves the full Anima Prompt Composer state.
 
@@ -1149,7 +1218,7 @@ If a workflow JSON does not contain `anima_state` (e.g. it was created before th
 
 ---
 
-## 18. Reference: model preset data
+## 20. Reference: model preset data
 
 The following values are taken directly from `data/anima_spec.json` `model_presets`. Use them when configuring KSampler nodes.
 
@@ -1211,7 +1280,7 @@ The following values are taken directly from `data/anima_spec.json` `model_prese
 
 ---
 
-## 19. Worked examples
+## 21. Worked examples
 
 This section shows three complete prompt sets from field values through to final assembled string.
 
@@ -1297,7 +1366,7 @@ masterpiece, best quality, score_7, safe, 1girl, solo, @lack, purple hair, long 
 
 ---
 
-## 20. Extension architecture for advanced users
+## 22. Extension architecture for advanced users
 
 This section is for users who want to understand how the extension fits into ComfyUI's architecture, for example when debugging issues or extending the extension.
 
@@ -1385,7 +1454,7 @@ User clicks "Queue Prompt"
 
 ---
 
-## 21. Troubleshooting guide (extended)
+## 23. Troubleshooting guide (extended)
 
 This section supplements the quick troubleshooting in README.md with additional diagnosis steps.
 
@@ -1449,7 +1518,7 @@ This error can occur if the extension is loaded before PromptServer is initializ
 
 ---
 
-## 22. Quick reference card
+## 24. Quick reference card
 
 A condensed one-page reference for experienced users.
 
@@ -1496,6 +1565,12 @@ Every artist token MUST start with `@`.
 | `GET /anima_prompt_helper/spec` | Spec, presets, validation params |
 | `GET /anima_prompt_helper/character_presets` | 49 character preset list |
 | `POST /anima_prompt_helper/validate` | Validate field values, return issues |
+| `GET /anima_prompt_helper/artist_pools` | List built-in and user artist pools |
+| `POST/DELETE /anima_prompt_helper/user_artist_pools[/{id}]` | Save or delete a user artist pool |
+| `GET /anima_prompt_helper/character_pools` | List built-in and user character pools |
+| `POST/DELETE /anima_prompt_helper/user_character_pools[/{id}]` | Save or delete a user character pool |
+| `GET /anima_prompt_helper/situation_pools` | List built-in and user situation pools |
+| `POST/DELETE /anima_prompt_helper/user_situation_pools[/{id}]` | Save or delete a user situation pool |
 
 ### Fields exempt from validation rules
 | Rule | Exempt fields |

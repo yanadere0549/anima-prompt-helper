@@ -17,6 +17,34 @@
 
 - **Prompt Importer recognises randomizer artists** — `python/metadata_extractor.py` now reads `AnimaArtistRandomizer`'s `picked` value (the composer's `artist` field is a link, so the literal artists live on the randomizer) and merges it into `anima_fields["artist"]` + the positive text, both in the `prompt` and `workflow` extraction paths. Dropping such an image into the Prompt Importer now surfaces the artists in the "Artist / 絵師" bucket.
 
+- **AnimaCharacterRandomizer node** — picks `count` random character tags from a locally-saved pool and outputs them as an insert-ready STRING (`character_tags`), wireable into an `AnimaPromptComposer` `character` input.
+  - Built-in default pool `data/character_pool_default.json` — ~3,349 character tags sourced from animadex.net 1girl entries. Regenerable with `scripts/fetch_character_pool.py`.
+  - Seed-reproducible selection, falls back to built-in pool when user pool is empty.
+  - Chosen characters are embedded in image metadata via the `picked` widget (same mechanism as AnimaArtistRandomizer).
+  - In-node panel: pool source dropdown (load / save / delete), tag chip list, 試し引き preview, and 「character欄へ挿入」.
+  - `python/character_pool.py`: `parse_pool` / `pick_characters` / `load_default_pool` / `join_characters`.
+  - `web/modules/character_pools.js`: `CharacterPoolStore` singleton + `fetchCharacterPools`.
+  - `web/modules/character_randomizer_panel.js`: `populateCharacterRandomizers(graph)`.
+  - Locally-saved pools stored in `data/user_character_pools.json` (gitignored).
+
+- **AnimaSituationRandomizer node** — picks `count` random situation/scene tags from a locally-saved pool and outputs them as an insert-ready STRING (`situation_tags`), wireable into an `AnimaPromptComposer` `general` input.
+  - Built-in default pool `data/situation_pool_default.json` — ~293 situation/scene tags sourced from Danbooru general tags. Regenerable with `scripts/fetch_situation_pool.py`.
+  - Seed-reproducible selection, falls back to built-in pool when user pool is empty.
+  - Chosen tags are embedded in image metadata via the `picked` widget.
+  - In-node panel: pool source dropdown (load / save / delete), tag chip list, 試し引き preview, and 「general欄へ挿入」.
+  - `python/situation_pool.py`: `parse_pool` / `pick_situations` / `load_default_pool` / `join_situations`.
+  - `web/modules/situation_pools.js`: `SituationPoolStore` singleton + `fetchSituationPools`.
+  - `web/modules/situation_randomizer_panel.js`: `populateSituationRandomizers(graph)`.
+  - Locally-saved pools stored in `data/user_situation_pools.json` (gitignored).
+
+- **6 new API routes** for character and situation pool management:
+  `GET /anima_prompt_helper/character_pools`, `POST /anima_prompt_helper/user_character_pools`, `DELETE /anima_prompt_helper/user_character_pools/{id}`,
+  `GET /anima_prompt_helper/situation_pools`, `POST /anima_prompt_helper/user_situation_pools`, `DELETE /anima_prompt_helper/user_situation_pools/{id}`.
+
+- **Pool fetch scripts** `scripts/fetch_character_pool.py` and `scripts/fetch_situation_pool.py` for regenerating the respective built-in pools.
+
+- **32 new tests** (`tests/test_character_randomizer.py`, `tests/test_situation_randomizer.py`, `tests/test_api_character_pools.py`, `tests/test_api_situation_pools.py`).
+
 ### Fixed
 - `tests/test_api_health.py`: synced the stale `_EXPECTED_ROUTES` / `_EXPECTED_NODE_CLASSES` / `_EXPECTED_FILES` lists with the current routes and node classes (the routes assertion had drifted out of sync).
 

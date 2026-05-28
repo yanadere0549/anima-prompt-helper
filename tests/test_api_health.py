@@ -32,6 +32,10 @@ _EXPECTED_FILES = [
     "user_prefix_presets.json",
     "user_artist_pools.json",
     "artist_pool_default.json",
+    "character_pool_default.json",
+    "user_character_pools.json",
+    "situation_pool_default.json",
+    "user_situation_pools.json",
     "anima/search.json",
     "i18n/ja.json",
 ]
@@ -51,6 +55,12 @@ _EXPECTED_ROUTES = [
     "/anima_prompt_helper/artist_pools",
     "/anima_prompt_helper/user_artist_pools",
     "/anima_prompt_helper/user_artist_pools/{id}",
+    "/anima_prompt_helper/character_pools",
+    "/anima_prompt_helper/user_character_pools",
+    "/anima_prompt_helper/user_character_pools/{id}",
+    "/anima_prompt_helper/situation_pools",
+    "/anima_prompt_helper/user_situation_pools",
+    "/anima_prompt_helper/user_situation_pools/{id}",
     "/anima_prompt_helper/artists",
     "/anima_prompt_helper/validate",
     "/anima_prompt_helper/extract_metadata",
@@ -64,6 +74,8 @@ _EXPECTED_NODE_CLASSES = [
     "AnimaTagPalette",
     "AnimaPromptImporter",
     "AnimaArtistRandomizer",
+    "AnimaCharacterRandomizer",
+    "AnimaSituationRandomizer",
 ]
 
 

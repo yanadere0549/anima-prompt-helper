@@ -283,6 +283,362 @@ None. The endpoint always returns HTTP 200 with a parseable JSON body.
 
 ---
 
+## Route 6: GET /anima_prompt_helper/artist_pools
+
+**Purpose:** List all available artist pools (built-in default + user-saved).
+
+### Request
+- Method: `GET`
+- Path: `/anima_prompt_helper/artist_pools`
+- Body: none
+
+### Preconditions
+- `data/artist_pool_default.json` exists and is valid JSON.
+- `data/user_artist_pools.json` may or may not exist (absent → treated as empty).
+
+### Response (200 OK)
+```json
+{
+  "pools": [
+    {
+      "id": "default",
+      "label": "Default (built-in)",
+      "builtin": true,
+      "count": 3195
+    },
+    {
+      "id": "my_favorites",
+      "label": "my_favorites",
+      "builtin": false,
+      "count": 12
+    }
+  ]
+}
+```
+
+### Error responses
+
+| Status | Body | Condition |
+|--------|------|-----------|
+| 503 | `{"error":"artist_pool_default_not_found"}` | `data/artist_pool_default.json` missing |
+| 500 | `{"error":"artist_pool_parse_error"}` | Invalid JSON in default pool file |
+
+### Postconditions
+- Default pool cached in-memory after first read.
+- User pools file re-read on every request (no caching).
+
+### Invariants
+- Content-Type: `application/json`.
+- Handler never modifies any pool file.
+
+---
+
+## Route 7: POST /anima_prompt_helper/user_artist_pools
+
+**Purpose:** Save a new user-defined artist pool (or overwrite an existing one with the same id).
+
+### Request
+- Method: `POST`
+- Path: `/anima_prompt_helper/user_artist_pools`
+- Content-Type: `application/json`
+- Body:
+```json
+{
+  "id": "my_favorites",
+  "label": "my_favorites",
+  "tags": ["@wlop", "@kantoku", "@lack"]
+}
+```
+
+**Server-side enforcement:**
+- `id` must be a non-empty string. Allowed characters: `[a-zA-Z0-9_-]`.
+- `label` must be a non-empty string.
+- `tags` must be an array of strings; each tag must start with `@`.
+- `id` must not equal `"default"` (built-in pool cannot be overwritten).
+
+### Response (200 OK)
+```json
+{ "ok": true, "id": "my_favorites", "count": 3 }
+```
+
+### Error responses
+
+| Status | Body | Condition |
+|--------|------|-----------|
+| 400 | `{"error":"invalid_request"}` | Malformed body, missing fields, or invalid id/tag format |
+| 500 | `{"error":"internal_error"}` | Unexpected write failure |
+
+### Postconditions
+- Pool written to `data/user_artist_pools.json`.
+- An existing pool with the same `id` is overwritten.
+
+---
+
+## Route 8: DELETE /anima_prompt_helper/user_artist_pools/{id}
+
+**Purpose:** Delete a user-defined artist pool by id.
+
+### Request
+- Method: `DELETE`
+- Path: `/anima_prompt_helper/user_artist_pools/{id}`
+- Body: none
+
+**Server-side enforcement:**
+- `{id}` must refer to an existing user pool.
+- `id` must not be `"default"` (built-in pool cannot be deleted).
+
+### Response (200 OK)
+```json
+{ "ok": true, "id": "my_favorites" }
+```
+
+### Error responses
+
+| Status | Body | Condition |
+|--------|------|-----------|
+| 404 | `{"error":"pool_not_found"}` | No user pool with that id exists |
+| 400 | `{"error":"cannot_delete_builtin"}` | Attempt to delete the built-in pool |
+| 500 | `{"error":"internal_error"}` | Unexpected write failure |
+
+### Postconditions
+- Pool entry removed from `data/user_artist_pools.json`.
+
+---
+
+## Route 9: GET /anima_prompt_helper/character_pools
+
+**Purpose:** List all available character pools (built-in default + user-saved).
+
+### Request
+- Method: `GET`
+- Path: `/anima_prompt_helper/character_pools`
+- Body: none
+
+### Preconditions
+- `data/character_pool_default.json` exists and is valid JSON.
+- `data/user_character_pools.json` may or may not exist (absent → treated as empty).
+
+### Response (200 OK)
+```json
+{
+  "pools": [
+    {
+      "id": "default",
+      "label": "Default (built-in)",
+      "builtin": true,
+      "count": 3349
+    },
+    {
+      "id": "my_pool",
+      "label": "my_pool",
+      "builtin": false,
+      "count": 5
+    }
+  ]
+}
+```
+
+### Error responses
+
+| Status | Body | Condition |
+|--------|------|-----------|
+| 503 | `{"error":"character_pool_default_not_found"}` | `data/character_pool_default.json` missing |
+| 500 | `{"error":"character_pool_parse_error"}` | Invalid JSON in default pool file |
+
+### Postconditions
+- Default pool cached in-memory after first read.
+- User pools file re-read on every request.
+
+### Invariants
+- Content-Type: `application/json`.
+- Handler never modifies any pool file.
+
+---
+
+## Route 10: POST /anima_prompt_helper/user_character_pools
+
+**Purpose:** Save a new user-defined character pool (or overwrite an existing one with the same id).
+
+### Request
+- Method: `POST`
+- Path: `/anima_prompt_helper/user_character_pools`
+- Content-Type: `application/json`
+- Body:
+```json
+{
+  "id": "my_pool",
+  "label": "my_pool",
+  "tags": ["hatsune miku", "rem", "hu tao"]
+}
+```
+
+**Server-side enforcement:**
+- `id` must be a non-empty string. Allowed characters: `[a-zA-Z0-9_-]`.
+- `label` must be a non-empty string.
+- `tags` must be an array of strings.
+- `id` must not equal `"default"`.
+
+### Response (200 OK)
+```json
+{ "ok": true, "id": "my_pool", "count": 3 }
+```
+
+### Error responses
+
+| Status | Body | Condition |
+|--------|------|-----------|
+| 400 | `{"error":"invalid_request"}` | Malformed body or invalid fields |
+| 500 | `{"error":"internal_error"}` | Unexpected write failure |
+
+### Postconditions
+- Pool written to `data/user_character_pools.json`.
+
+---
+
+## Route 11: DELETE /anima_prompt_helper/user_character_pools/{id}
+
+**Purpose:** Delete a user-defined character pool by id.
+
+### Request
+- Method: `DELETE`
+- Path: `/anima_prompt_helper/user_character_pools/{id}`
+- Body: none
+
+### Response (200 OK)
+```json
+{ "ok": true, "id": "my_pool" }
+```
+
+### Error responses
+
+| Status | Body | Condition |
+|--------|------|-----------|
+| 404 | `{"error":"pool_not_found"}` | No user pool with that id exists |
+| 400 | `{"error":"cannot_delete_builtin"}` | Attempt to delete the built-in pool |
+| 500 | `{"error":"internal_error"}` | Unexpected write failure |
+
+### Postconditions
+- Pool entry removed from `data/user_character_pools.json`.
+
+---
+
+## Route 12: GET /anima_prompt_helper/situation_pools
+
+**Purpose:** List all available situation pools (built-in default + user-saved).
+
+### Request
+- Method: `GET`
+- Path: `/anima_prompt_helper/situation_pools`
+- Body: none
+
+### Preconditions
+- `data/situation_pool_default.json` exists and is valid JSON.
+- `data/user_situation_pools.json` may or may not exist (absent → treated as empty).
+
+### Response (200 OK)
+```json
+{
+  "pools": [
+    {
+      "id": "default",
+      "label": "Default (built-in)",
+      "builtin": true,
+      "count": 293
+    },
+    {
+      "id": "outdoor_scenes",
+      "label": "outdoor_scenes",
+      "builtin": false,
+      "count": 8
+    }
+  ]
+}
+```
+
+### Error responses
+
+| Status | Body | Condition |
+|--------|------|-----------|
+| 503 | `{"error":"situation_pool_default_not_found"}` | `data/situation_pool_default.json` missing |
+| 500 | `{"error":"situation_pool_parse_error"}` | Invalid JSON in default pool file |
+
+### Postconditions
+- Default pool cached in-memory after first read.
+- User pools file re-read on every request.
+
+### Invariants
+- Content-Type: `application/json`.
+- Handler never modifies any pool file.
+
+---
+
+## Route 13: POST /anima_prompt_helper/user_situation_pools
+
+**Purpose:** Save a new user-defined situation pool (or overwrite an existing one with the same id).
+
+### Request
+- Method: `POST`
+- Path: `/anima_prompt_helper/user_situation_pools`
+- Content-Type: `application/json`
+- Body:
+```json
+{
+  "id": "outdoor_scenes",
+  "label": "outdoor_scenes",
+  "tags": ["beach", "forest", "rooftop"]
+}
+```
+
+**Server-side enforcement:**
+- `id` must be a non-empty string. Allowed characters: `[a-zA-Z0-9_-]`.
+- `label` must be a non-empty string.
+- `tags` must be an array of strings.
+- `id` must not equal `"default"`.
+
+### Response (200 OK)
+```json
+{ "ok": true, "id": "outdoor_scenes", "count": 3 }
+```
+
+### Error responses
+
+| Status | Body | Condition |
+|--------|------|-----------|
+| 400 | `{"error":"invalid_request"}` | Malformed body or invalid fields |
+| 500 | `{"error":"internal_error"}` | Unexpected write failure |
+
+### Postconditions
+- Pool written to `data/user_situation_pools.json`.
+
+---
+
+## Route 14: DELETE /anima_prompt_helper/user_situation_pools/{id}
+
+**Purpose:** Delete a user-defined situation pool by id.
+
+### Request
+- Method: `DELETE`
+- Path: `/anima_prompt_helper/user_situation_pools/{id}`
+- Body: none
+
+### Response (200 OK)
+```json
+{ "ok": true, "id": "outdoor_scenes" }
+```
+
+### Error responses
+
+| Status | Body | Condition |
+|--------|------|-----------|
+| 404 | `{"error":"pool_not_found"}` | No user pool with that id exists |
+| 400 | `{"error":"cannot_delete_builtin"}` | Attempt to delete the built-in pool |
+| 500 | `{"error":"internal_error"}` | Unexpected write failure |
+
+### Postconditions
+- Pool entry removed from `data/user_situation_pools.json`.
+
+---
+
 ## Node: AnimaTagPalette (v0.4.0+)
 
 **Python class:** `python.nodes.AnimaTagPalette`  
@@ -311,3 +667,91 @@ None. The endpoint always returns HTTP 200 with a parseable JSON body.
 - `passthrough` never mutates its input.
 - Returns a 1-tuple `(str,)`.
 - Raises `TypeError` if `tags_buffer` is not `str`.
+
+---
+
+## Node: AnimaArtistRandomizer
+
+**Python class:** `python.nodes.AnimaArtistRandomizer`
+**ComfyUI key:** `AnimaArtistRandomizer`
+**Display name:** `Anima Artist Randomizer`
+
+### Inputs
+
+| Name | Type | Notes |
+|------|------|-------|
+| `count` | `INT` | Number of artists to pick. Min: 1. |
+| `seed` | `INT` | RNG seed. Supports `control_after_generate`. |
+| `pool_source` | `STRING` | Pool id to draw from. `"default"` uses the built-in pool. |
+| `picked` | `STRING` (hidden) | Populated at queue time with the comma-separated list of actually picked tags. Embedded in image metadata. |
+
+### Outputs
+
+| Name | Type | Notes |
+|------|------|-------|
+| `artist_tags` | `STRING` | Comma-separated `@`-prefixed artist tags. Empty string if pool is empty. |
+
+### Invariants
+- Selection is seeded and deterministic: same `seed` + `count` + pool always yields the same output.
+- Falls back to built-in pool when `pool_source` points to an empty or missing user pool.
+- `artist_tags` always starts with `@` on each token; suitable for direct wiring into `AnimaPromptComposer.artist`.
+- Returns a 1-tuple `(str,)`. Never raises on empty pool (returns `""`).
+
+---
+
+## Node: AnimaCharacterRandomizer
+
+**Python class:** `python.nodes.AnimaCharacterRandomizer`
+**ComfyUI key:** `AnimaCharacterRandomizer`
+**Display name:** `Anima Character Randomizer`
+
+### Inputs
+
+| Name | Type | Notes |
+|------|------|-------|
+| `count` | `INT` | Number of character tags to pick. Min: 1. |
+| `seed` | `INT` | RNG seed. Supports `control_after_generate`. |
+| `pool_source` | `STRING` | Pool id to draw from. `"default"` uses the built-in pool. |
+| `picked` | `STRING` (hidden) | Populated at queue time with the comma-separated list of actually picked tags. Embedded in image metadata. |
+
+### Outputs
+
+| Name | Type | Notes |
+|------|------|-------|
+| `character_tags` | `STRING` | Comma-separated character name tags. Empty string if pool is empty. |
+
+### Invariants
+- Selection is seeded and deterministic.
+- Falls back to built-in pool when `pool_source` points to an empty or missing user pool.
+- Tags are lowercase Danbooru-style character names (no `@` prefix).
+- Returns a 1-tuple `(str,)`. Never raises on empty pool (returns `""`).
+
+---
+
+## Node: AnimaSituationRandomizer
+
+**Python class:** `python.nodes.AnimaSituationRandomizer`
+**ComfyUI key:** `AnimaSituationRandomizer`
+**Display name:** `Anima Situation Randomizer`
+
+### Inputs
+
+| Name | Type | Notes |
+|------|------|-------|
+| `count` | `INT` | Number of situation tags to pick. Min: 1. |
+| `seed` | `INT` | RNG seed. Supports `control_after_generate`. |
+| `pool_source` | `STRING` | Pool id to draw from. `"default"` uses the built-in pool. |
+| `picked` | `STRING` (hidden) | Populated at queue time with the comma-separated list of actually picked tags. Embedded in image metadata. |
+
+### Outputs
+
+| Name | Type | Notes |
+|------|------|-------|
+| `situation_tags` | `STRING` | Comma-separated situation/scene tags. Empty string if pool is empty. |
+
+### Invariants
+- Selection is seeded and deterministic.
+- Falls back to built-in pool when `pool_source` points to an empty or missing user pool.
+- Tags are lowercase Danbooru-style general tags (no `@` prefix).
+- Returns a 1-tuple `(str,)`. Never raises on empty pool (returns `""`).
+- Tags are suitable for appending to `AnimaPromptComposer.general`.

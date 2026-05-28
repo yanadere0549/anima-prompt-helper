@@ -23,6 +23,16 @@ import {
   injectArtistRandomizerPanel,
   populateArtistRandomizers,
 } from "../modules/artist_randomizer_panel.js";
+import { CharacterPoolStore, fetchCharacterPools } from "../modules/character_pools.js";
+import { SituationPoolStore, fetchSituationPools } from "../modules/situation_pools.js";
+import {
+  injectCharacterRandomizerPanel,
+  populateCharacterRandomizers,
+} from "../modules/character_randomizer_panel.js";
+import {
+  injectSituationRandomizerPanel,
+  populateSituationRandomizers,
+} from "../modules/situation_randomizer_panel.js";
 
 // --- Inject stylesheet ---
 (function injectStyles() {
@@ -41,6 +51,8 @@ let situationPresetsCache = null;
 let prefixPresetsCache = null;
 let artistsCache = null;
 let artistPoolsCache = null;
+let characterPoolsCache = null;
+let situationPoolsCache = null;
 
 /**
  * Fetch the palette data from the backend.
@@ -204,7 +216,7 @@ app.registerExtension({
    * Lazily fetches palette and spec; caches them in module scope.
    */
   async setup() {
-    [paletteCache, specCache, characterPresetsCache, situationPresetsCache, prefixPresetsCache, artistsCache, artistPoolsCache] = await Promise.all([
+    [paletteCache, specCache, characterPresetsCache, situationPresetsCache, prefixPresetsCache, artistsCache, artistPoolsCache, characterPoolsCache, situationPoolsCache] = await Promise.all([
       fetchPalette(),
       fetchSpec(),
       fetchCharacterPresets(),
@@ -212,6 +224,8 @@ app.registerExtension({
       fetchPrefixPresets(),
       fetchArtists(),
       fetchArtistPools(),
+      fetchCharacterPools(),
+      fetchSituationPools(),
     ]);
     setNegativeCaches(paletteCache, specCache);
     setTagPaletteCaches(paletteCache, specCache);
@@ -251,6 +265,20 @@ app.registerExtension({
     } else {
       console.warn("[AnimaPromptHelper] setup: artist pools unavailable — randomizer uses built-in default only.");
     }
+    if (characterPoolsCache) {
+      CharacterPoolStore.init(characterPoolsCache);
+      const nPools = Array.isArray(characterPoolsCache.pools) ? characterPoolsCache.pools.length : 0;
+      console.info("[AnimaPromptHelper] character pools loaded:", nPools, "pool(s)");
+    } else {
+      console.warn("[AnimaPromptHelper] setup: character pools unavailable — randomizer uses built-in default only.");
+    }
+    if (situationPoolsCache) {
+      SituationPoolStore.init(situationPoolsCache);
+      const nPools = Array.isArray(situationPoolsCache.pools) ? situationPoolsCache.pools.length : 0;
+      console.info("[AnimaPromptHelper] situation pools loaded:", nPools, "pool(s)");
+    } else {
+      console.warn("[AnimaPromptHelper] setup: situation pools unavailable — randomizer uses built-in default only.");
+    }
 
     // --- Queue-time hook: populate each AnimaArtistRandomizer's `picked`
     // widget right before the prompt is built. graphToPrompt runs once per
@@ -265,6 +293,16 @@ app.registerExtension({
           populateArtistRandomizers(app.graph);
         } catch (err) {
           console.warn("[AnimaPromptHelper] populateArtistRandomizers failed:", err);
+        }
+        try {
+          populateCharacterRandomizers(app.graph);
+        } catch (err) {
+          console.warn("[AnimaPromptHelper] populateCharacterRandomizers failed:", err);
+        }
+        try {
+          populateSituationRandomizers(app.graph);
+        } catch (err) {
+          console.warn("[AnimaPromptHelper] populateSituationRandomizers failed:", err);
         }
         return origGraphToPrompt(...args);
       };
@@ -420,6 +458,22 @@ app.registerExtension({
         // from the store live, so a later store init is picked up via the
         // subscribe() hook in the panel.
         injectArtistRandomizerPanel(this);
+      };
+    } else if (nodeData.name === "AnimaCharacterRandomizer") {
+      const origOnNodeCreated = nodeType.prototype.onNodeCreated;
+      nodeType.prototype.onNodeCreated = function () {
+        if (origOnNodeCreated) {
+          origOnNodeCreated.apply(this, arguments);
+        }
+        injectCharacterRandomizerPanel(this);
+      };
+    } else if (nodeData.name === "AnimaSituationRandomizer") {
+      const origOnNodeCreated = nodeType.prototype.onNodeCreated;
+      nodeType.prototype.onNodeCreated = function () {
+        if (origOnNodeCreated) {
+          origOnNodeCreated.apply(this, arguments);
+        }
+        injectSituationRandomizerPanel(this);
       };
     }
   },

@@ -15,6 +15,8 @@ from __future__ import annotations
 import logging
 
 from . import artist_pool as _artist_pool
+from . import character_pool as _character_pool
+from . import situation_pool as _situation_pool
 from . import composer as _composer
 
 logger = logging.getLogger(__name__)
@@ -595,3 +597,229 @@ class AnimaArtistRandomizer:
 
         chosen = _artist_pool.pick_artists(tags, count, seed)
         return (_artist_pool.join_artists(chosen),)
+
+
+# ---------------------------------------------------------------------------
+# AnimaCharacterRandomizer
+# ---------------------------------------------------------------------------
+
+
+class AnimaCharacterRandomizer:
+    """Random character-tag picker satellite node.
+
+    Picks ``count`` distinct character tags at random from a saved pool and
+    emits them as a comma-separated STRING that can be wired into an
+    ``AnimaPromptComposer`` ``character`` input, or injected into a same-graph
+    composer via the panel's "Composerへ挿入" button.
+
+    The ``pool`` is a comma/newline-separated buffer managed by the side panel
+    (autocomplete suggest + locally-saved named pools). When it is empty the
+    node falls back to the built-in pool shipped in
+    ``data/character_pool_default.json``, so a freshly-dropped node works
+    immediately.
+
+    Selection is fully determined by ``seed`` — the same seed + pool always
+    yields the same characters (reproducible). Pair ``seed`` with
+    ``control_after_generate`` (increment / randomize) and ComfyUI's batch
+    count to run "j times" and get j different character sets in one queue.
+
+    In the GUI the chosen characters are written into the ``picked`` widget at
+    queue time, so they are serialized into the workflow / prompt and embedded
+    in the saved image's metadata. ``randomize`` returns ``picked`` verbatim
+    when present.
+
+    Preconditions (enforced by ComfyUI):
+        - ``count`` is an int >= 1.
+        - ``seed`` is a non-negative int.
+        - ``pool`` is a str.
+    Postconditions:
+        - Returns a 1-tuple ``(str,)``; ``""`` only when both the pool and the
+          built-in default are empty.
+    """
+
+    CATEGORY = "Anima"
+    FUNCTION = "randomize"
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("character_tags",)
+    OUTPUT_NODE = False
+
+    @classmethod
+    def INPUT_TYPES(cls) -> dict:  # type: ignore[override]
+        return {
+            "required": {
+                "count": (
+                    "INT",
+                    {"default": 1, "min": 1, "max": 50, "step": 1},
+                ),
+                "seed": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 0xFFFFFFFFFFFFFFFF,
+                        "control_after_generate": True,
+                    },
+                ),
+                # pool is an internal buffer driven by the panel UI; multiline
+                # keeps the saved tag list readable. Empty -> built-in pool.
+                "pool": ("STRING", {"multiline": True, "default": ""}),
+                # picked holds the characters chosen for THIS run. In the GUI
+                # the panel JS fills it at queue time (via the graphToPrompt
+                # hook), so the actual selection is serialized into the
+                # workflow / API prompt and therefore embedded in the saved
+                # image's metadata. Left empty for headless / API callers, in
+                # which case Python falls back to its own seeded selection.
+                "picked": ("STRING", {"multiline": False, "default": ""}),
+            },
+        }
+
+    def randomize(
+        self, count: int, seed: int, pool: str, picked: str = ""
+    ) -> tuple[str]:
+        """Return the character tags for this run (seed-reproducible).
+
+        Preconditions:
+            - ``count`` and ``seed`` are ints; ``pool`` and ``picked`` are str.
+        Postconditions:
+            - Returns ``(str,)``; never raises for valid ComfyUI inputs.
+            - When ``picked`` is non-empty (GUI path) it is returned verbatim so
+              the output matches exactly what was recorded in the image metadata.
+            - Otherwise (headless / API) a fresh seeded selection from ``pool``
+              (or the built-in default pool) is returned.
+        """
+        # GUI path: the panel already chose and recorded the characters.
+        if isinstance(picked, str) and picked.strip():
+            return (picked.strip(),)
+
+        tags = _character_pool.parse_pool(pool)
+        if not tags:
+            tags = _character_pool.load_default_pool()
+            if tags:
+                logger.debug(
+                    "AnimaCharacterRandomizer: pool empty, using built-in "
+                    "default pool (%d tags)",
+                    len(tags),
+                )
+
+        if not tags:
+            logger.warning(
+                "AnimaCharacterRandomizer: no character tags available (pool "
+                "empty and default pool missing); returning empty string."
+            )
+            return ("",)
+
+        chosen = _character_pool.pick_tags(tags, count, seed)
+        return (_character_pool.join_tags(chosen),)
+
+
+# ---------------------------------------------------------------------------
+# AnimaSituationRandomizer
+# ---------------------------------------------------------------------------
+
+
+class AnimaSituationRandomizer:
+    """Random situation-tag picker satellite node.
+
+    Picks ``count`` distinct situation tags at random from a saved pool and
+    emits them as a comma-separated STRING intended for the ``general`` input
+    of an ``AnimaPromptComposer`` node (situation-related general tags such as
+    locations, lighting conditions, weather, and scene compositions).
+
+    The ``pool`` is a comma/newline-separated buffer managed by the side panel
+    (autocomplete suggest + locally-saved named pools). When it is empty the
+    node falls back to the built-in Danbooru situation pool shipped in
+    ``data/situation_pool_default.json``, so a freshly-dropped node works
+    immediately.
+
+    Selection is fully determined by ``seed`` — the same seed + pool always
+    yields the same situations (reproducible). Pair ``seed`` with
+    ``control_after_generate`` (increment / randomize) and ComfyUI's batch
+    count to run "j times" and get j different situation sets in one queue.
+
+    In the GUI the chosen situations are written into the ``picked`` widget at
+    queue time, so they are serialized into the workflow / prompt and embedded
+    in the saved image's metadata. ``randomize`` returns ``picked`` verbatim
+    when present.
+
+    Preconditions (enforced by ComfyUI):
+        - ``count`` is an int >= 1.
+        - ``seed`` is a non-negative int.
+        - ``pool`` is a str.
+    Postconditions:
+        - Returns a 1-tuple ``(str,)``; ``""`` only when both the pool and the
+          built-in default are empty.
+    """
+
+    CATEGORY = "Anima"
+    FUNCTION = "randomize"
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("situation_tags",)
+    OUTPUT_NODE = False
+
+    @classmethod
+    def INPUT_TYPES(cls) -> dict:  # type: ignore[override]
+        return {
+            "required": {
+                "count": (
+                    "INT",
+                    {"default": 1, "min": 1, "max": 50, "step": 1},
+                ),
+                "seed": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 0xFFFFFFFFFFFFFFFF,
+                        "control_after_generate": True,
+                    },
+                ),
+                # pool is an internal buffer driven by the panel UI; multiline
+                # keeps the saved tag list readable. Empty -> built-in pool.
+                "pool": ("STRING", {"multiline": True, "default": ""}),
+                # picked holds the situations chosen for THIS run. In the GUI
+                # the panel JS fills it at queue time (via the graphToPrompt
+                # hook), so the actual selection is serialized into the
+                # workflow / API prompt and therefore embedded in the saved
+                # image's metadata. Left empty for headless / API callers, in
+                # which case Python falls back to its own seeded selection.
+                "picked": ("STRING", {"multiline": False, "default": ""}),
+            },
+        }
+
+    def randomize(
+        self, count: int, seed: int, pool: str, picked: str = ""
+    ) -> tuple[str]:
+        """Return the situation tags for this run (seed-reproducible).
+
+        Preconditions:
+            - ``count`` and ``seed`` are ints; ``pool`` and ``picked`` are str.
+        Postconditions:
+            - Returns ``(str,)``; never raises for valid ComfyUI inputs.
+            - When ``picked`` is non-empty (GUI path) it is returned verbatim so
+              the output matches exactly what was recorded in the image metadata.
+            - Otherwise (headless / API) a fresh seeded selection from ``pool``
+              (or the built-in default pool) is returned.
+        """
+        # GUI path: the panel already chose and recorded the situations.
+        if isinstance(picked, str) and picked.strip():
+            return (picked.strip(),)
+
+        tags = _situation_pool.parse_pool(pool)
+        if not tags:
+            tags = _situation_pool.load_default_pool()
+            if tags:
+                logger.debug(
+                    "AnimaSituationRandomizer: pool empty, using built-in "
+                    "default pool (%d tags)",
+                    len(tags),
+                )
+
+        if not tags:
+            logger.warning(
+                "AnimaSituationRandomizer: no situation tags available (pool "
+                "empty and default pool missing); returning empty string."
+            )
+            return ("",)
+
+        chosen = _situation_pool.pick_tags(tags, count, seed)
+        return (_situation_pool.join_tags(chosen),)

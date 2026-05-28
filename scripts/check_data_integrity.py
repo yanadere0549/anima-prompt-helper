@@ -407,6 +407,63 @@ def check_i18n() -> list[Issue]:
     return issues
 
 
+def _check_pool_default(filename: str) -> list[Issue]:
+    """Shared structural check for *_pool_default.json files.
+
+    Preconditions:
+        - ``filename`` is a relative path under ``data/``.
+    Postconditions:
+        - Returns errors if the file is missing, unparseable, has wrong fields,
+          count mismatch, non-string tags, or case-insensitive duplicates.
+    """
+    issues: list[Issue] = []
+    path = EXTENSION_ROOT / "data" / filename
+    label = f"data/{filename}"
+
+    data, err = _load_json(path)
+    if err:
+        return [Issue("error", label, err)]
+
+    for field in ("version", "count", "tags"):
+        if field not in data:
+            issues.append(Issue("error", label, f"missing required field '{field}'"))
+
+    tags = data.get("tags")
+    if not isinstance(tags, list):
+        issues.append(Issue("error", label, "'tags' must be a list"))
+        return issues
+
+    count = data.get("count")
+    if isinstance(count, int) and count != len(tags):
+        issues.append(Issue(
+            "error", label,
+            f"'count' ({count}) does not match len(tags) ({len(tags)})"
+        ))
+
+    seen: set[str] = set()
+    for tag in tags:
+        if not isinstance(tag, str) or not tag.strip():
+            issues.append(Issue("error", label, f"tag entry {tag!r} is not a non-empty string"))
+            continue
+        key = tag.lower()
+        if key in seen:
+            issues.append(Issue("error", label, f"duplicate tag (case-insensitive): {tag!r}"))
+        else:
+            seen.add(key)
+
+    return issues
+
+
+def check_character_pool_default() -> list[Issue]:
+    """Check data/character_pool_default.json."""
+    return _check_pool_default("character_pool_default.json")
+
+
+def check_situation_pool_default() -> list[Issue]:
+    """Check data/situation_pool_default.json."""
+    return _check_pool_default("situation_pool_default.json")
+
+
 def check_cross_references() -> list[Issue]:
     """Cross-file reference checks."""
     issues: list[Issue] = []
@@ -468,6 +525,8 @@ def check_all() -> list[Issue]:
     issues.extend(check_tag_palette_extras())
     issues.extend(check_anima_spec())
     issues.extend(check_character_presets())
+    issues.extend(check_character_pool_default())
+    issues.extend(check_situation_pool_default())
     issues.extend(check_i18n())
     issues.extend(check_cross_references())
     return issues

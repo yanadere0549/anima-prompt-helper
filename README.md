@@ -35,7 +35,7 @@ This extension makes it easy to compose prompts in the correct order by exposing
 
 2. Restart ComfyUI (or use the Manager's "Restart" button if you have ComfyUI-Manager installed).
 
-3. (Optional) Verify the installation by opening the **Add Node** menu. Look for the category **Anima** — it should contain three nodes: **Anima Prompt Composer**, **Anima Prompt -> Conditioning**, and **Anima Negative Prompt Composer**.
+3. (Optional) Verify the installation by opening the **Add Node** menu. Look for the category **Anima** — it should contain nodes including **Anima Prompt Composer**, **Anima Prompt -> Conditioning**, **Anima Negative Prompt Composer**, **Anima Artist Randomizer**, **Anima Character Randomizer**, and **Anima Situation Randomizer**.
 
 ### Install workflow templates (optional)
 
@@ -63,6 +63,9 @@ Pass `-Force` / `--force` to overwrite previously installed copies, or `-DryRun`
 | Anima Tag Palette | `AnimaTagPalette` | Satellite node hosting the full 30-category tag palette with hierarchical UI. | `STRING (tags)` |
 | Anima Prompt -> Conditioning | `AnimaPromptToConditioning` | Encode a composed prompt string into a CONDITIONING tensor using a CLIP model. | `CONDITIONING`, `STRING (positive_prompt)` |
 | Anima Negative Prompt Composer | `AnimaNegativePromptComposer` | Compose a negative prompt from six structured categories with model-specific preset overrides. | `STRING (negative_prompt)` |
+| Anima Artist Randomizer | `AnimaArtistRandomizer` | Pick N random artist tags from a saved pool (built-in or user-defined); wire into the `artist` field of AnimaPromptComposer. | `STRING (artist_tags)` |
+| Anima Character Randomizer | `AnimaCharacterRandomizer` | Pick N random character tags from a saved pool (built-in ~3349 animadex.net 1girl entries); wire into the `character` field of AnimaPromptComposer. | `STRING (character_tags)` |
+| Anima Situation Randomizer | `AnimaSituationRandomizer` | Pick N random situation/scene tags from a saved pool (built-in ~293 Danbooru general tags); wire into the `general` field of AnimaPromptComposer. | `STRING (situation_tags)` |
 
 ---
 
@@ -169,6 +172,72 @@ Satellite node that hosts the full 30-category tag palette with hierarchical UI.
 - Choose the insertion field (e.g. `general`, `character`).
 - Click a tag to toggle it in the target field, or use the **Composerへ挿入** button to batch-commit the buffer.
 - Alternatively, connect `AnimaTagPalette.tags` → `AnimaPromptComposer.<field>` for graph-link delivery at execution time.
+
+---
+
+### Anima Artist Randomizer
+
+**Class name:** `AnimaArtistRandomizer`
+**Category:** `Anima`
+
+Picks `count` random artist tags from a user-managed or built-in pool and outputs them as a comma-separated `@`-prefixed string ready to wire into `AnimaPromptComposer.artist`.
+
+| Widget | Description |
+|---|---|
+| `count` | Number of artists to pick per generation. |
+| `seed` | RNG seed. Use `control_after_generate` for a fresh pick each queue. |
+| `pool_source` | Select a named pool (built-in or user-saved). Falls back to the built-in pool when empty. |
+| `picked` | Populated at queue time with the actual picked tags (embedded in image metadata). |
+
+Built-in pool: `data/artist_pool_default.json` — 3,195 artist tags (animadex.net score ≥ 0.5). Regenerable with `scripts/fetch_artist_pool.py`.
+
+User pools are persisted in `data/user_artist_pools.json` (gitignored) and managed via the in-node panel (save / load / delete).
+
+**Connecting:** Wire `artist_tags` → `AnimaPromptComposer.artist`.
+
+---
+
+### Anima Character Randomizer
+
+**Class name:** `AnimaCharacterRandomizer`
+**Category:** `Anima`
+
+Picks `count` random character tags from a user-managed or built-in pool and outputs them as a comma-separated string ready to wire into `AnimaPromptComposer.character`.
+
+| Widget | Description |
+|---|---|
+| `count` | Number of character tags to pick. |
+| `seed` | RNG seed. |
+| `pool_source` | Select a named pool (built-in or user-saved). |
+| `picked` | Populated at queue time with the actual picked tags. |
+
+Built-in pool: `data/character_pool_default.json` — ~3349 character tags sourced from animadex.net 1girl entries. Regenerable with `scripts/fetch_character_pool.py`.
+
+User pools are persisted in `data/user_character_pools.json` (gitignored) and managed via the in-node panel.
+
+**Connecting:** Wire `character_tags` → `AnimaPromptComposer.character`.
+
+---
+
+### Anima Situation Randomizer
+
+**Class name:** `AnimaSituationRandomizer`
+**Category:** `Anima`
+
+Picks `count` random situation/scene tags from a user-managed or built-in pool and outputs them as a comma-separated string ready to append to `AnimaPromptComposer.general`.
+
+| Widget | Description |
+|---|---|
+| `count` | Number of situation tags to pick. |
+| `seed` | RNG seed. |
+| `pool_source` | Select a named pool (built-in or user-saved). |
+| `picked` | Populated at queue time with the actual picked tags. |
+
+Built-in pool: `data/situation_pool_default.json` — ~293 situation/scene tags sourced from Danbooru general tags. Regenerable with `scripts/fetch_situation_pool.py`.
+
+User pools are persisted in `data/user_situation_pools.json` (gitignored) and managed via the in-node panel.
+
+**Connecting:** Wire `situation_tags` → `AnimaPromptComposer.general` (or append to an existing general field value).
 
 ---
 
@@ -370,6 +439,15 @@ All routes are registered on `PromptServer.instance.routes` with the prefix `/an
 | `/anima_prompt_helper/spec` | GET | Serve the Anima spec file (canonical order, model presets, validation rule parameters). Cached in memory after the first read. |
 | `/anima_prompt_helper/character_presets` | GET | Serve the 49 character preset list. Cached in memory after the first read. |
 | `/anima_prompt_helper/validate` | POST | Run server-side validation rules on the current field values; return a list of issues and the assembled prompt length. |
+| `/anima_prompt_helper/artist_pools` | GET | List built-in and user artist pools. |
+| `/anima_prompt_helper/user_artist_pools` | POST | Save a new user artist pool. |
+| `/anima_prompt_helper/user_artist_pools/{id}` | DELETE | Delete a user artist pool by id. |
+| `/anima_prompt_helper/character_pools` | GET | List built-in and user character pools. |
+| `/anima_prompt_helper/user_character_pools` | POST | Save a new user character pool. |
+| `/anima_prompt_helper/user_character_pools/{id}` | DELETE | Delete a user character pool by id. |
+| `/anima_prompt_helper/situation_pools` | GET | List built-in and user situation pools. |
+| `/anima_prompt_helper/user_situation_pools` | POST | Save a new user situation pool. |
+| `/anima_prompt_helper/user_situation_pools/{id}` | DELETE | Delete a user situation pool by id. |
 
 Full request/response schemas are in [`api_contract.md`](api_contract.md).
 
