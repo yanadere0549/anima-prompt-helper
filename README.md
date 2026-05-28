@@ -64,7 +64,7 @@ Pass `-Force` / `--force` to overwrite previously installed copies, or `-DryRun`
 | Anima Prompt -> Conditioning | `AnimaPromptToConditioning` | Encode a composed prompt string into a CONDITIONING tensor using a CLIP model. | `CONDITIONING`, `STRING (positive_prompt)` |
 | Anima Negative Prompt Composer | `AnimaNegativePromptComposer` | Compose a negative prompt from six structured categories with model-specific preset overrides. | `STRING (negative_prompt)` |
 | Anima Artist Randomizer | `AnimaArtistRandomizer` | Pick N random artist tags from a saved pool (built-in or user-defined); wire into the `artist` field of AnimaPromptComposer. | `STRING (artist_tags)` |
-| Anima Character Randomizer | `AnimaCharacterRandomizer` | Pick N random character tags from a saved pool (built-in ~3349 animadex.net 1girl entries); wire into the `character` field of AnimaPromptComposer. When inserting, the optional "メタ情報も挿入" checkbox auto-fills series/general/artist fields and `natural_language` from the matching animadex character preset (300 presets bundled). | `STRING (character_tags)` |
+| Anima Character Randomizer | `AnimaCharacterRandomizer` | Pick N random character tags from a saved pool (built-in ~3349 animadex.net 1girl entries) and aggregate the matching animadex character presets (300 bundled) into four outputs ready to wire into AnimaPromptComposer's `character`, `series`, `general`, and `natural_language` fields. The panel still offers the "メタ情報も挿入" one-shot button as a manual alternative. | `STRING (character_tags)`, `STRING (series)`, `STRING (general)`, `STRING (prompt_example)` |
 | Anima Situation Randomizer | `AnimaSituationRandomizer` | Pick N random situation/scene tags from a saved pool (built-in ~293 Danbooru general tags); wire into the `general` field of AnimaPromptComposer. | `STRING (situation_tags)` |
 
 ---
@@ -89,13 +89,22 @@ Accepts nine ordered fields and one preset selector. Joins the fields in canonic
 | `natural_language` | STRING | `""` | Natural-language sentences appended last without comma-splitting (multiline). |
 | `prefix_preset` | COMBO | `ooo_anima_default` | `ooo_anima_default` overrides quality/year/rating with OOO_Anima defaults. `none` uses field values as-is. |
 
+**Optional inputs** (accept both typed text and wired input from upstream nodes):
+
+| Input field | Type | Default | Description |
+|---|---|---|---|
+| `lora_trigger_words` | STRING | `""` | Comma-separated tokens appended after `general` and before `natural_language`. Intended for LoRA trigger phrases. |
+| `artist_extra` | STRING | `""` | Extra artist tokens (multiline). Appended to `artist` with `", "` before the canonical join, so wired randomizer output merges with the user's typed artists. |
+| `general_extra` | STRING | `""` | Extra general tokens (multiline). Appended to `general` with `", "` before tokenisation. |
+| `natural_language_extra` | STRING | `""` | Extra natural-language sentence(s) (multiline). Appended to `natural_language` with `". "`. |
+
 **Output:**
 
 | Name | Type | Description |
 |---|---|---|
 | `positive_prompt` | STRING | Assembled prompt string in canonical field order. |
 
-**Behavior:** When `prefix_preset` is `ooo_anima_default`, the `quality` and `year` field values are replaced with the OOO_Anima defaults before joining. The `rating` is reset to `safe` and `game cg` is injected after the rating field. Fields are joined with `", "`. The `natural_language` field is appended verbatim after a `". "` separator when non-empty.
+**Behavior:** When `prefix_preset` is `ooo_anima_default`, the `quality` and `year` field values are replaced with the OOO_Anima defaults before joining. The `rating` is reset to `safe` and `game cg` is injected after the rating field. Fields are joined with `", "`. The `natural_language` field is appended verbatim after a `". "` separator when non-empty. Each `*_extra` optional input is merged into the corresponding main field with the canonical separator (`", "` for artist/general, `". "` for natural_language) BEFORE preset shadowing and tokenisation, so randomizer-supplied content always lands in `positive_prompt` without overwriting the user's typed widget value.
 
 ---
 
@@ -202,7 +211,12 @@ User pools are persisted in `data/user_artist_pools.json` (gitignored) and manag
 **Class name:** `AnimaCharacterRandomizer`
 **Category:** `Anima`
 
-Picks `count` random character tags from a user-managed or built-in pool and outputs them as a comma-separated string ready to wire into `AnimaPromptComposer.character`.
+Picks `count` random character tags from a user-managed or built-in pool, then looks each pick up in `data/animadex_character_presets.json` (300 bundled presets) to aggregate four STRING outputs ready to wire into `AnimaPromptComposer`:
+
+- `character_tags` — comma-joined picked characters.
+- `series` — comma-joined unique series names of matched presets.
+- `general` — comma-joined unique `essential_general_tags` of matched presets.
+- `prompt_example` — newline-joined `prompt_example` strings of matched presets.
 
 | Widget | Description |
 |---|---|
@@ -210,12 +224,13 @@ Picks `count` random character tags from a user-managed or built-in pool and out
 | `seed` | RNG seed. |
 | `pool_source` | Select a named pool (built-in or user-saved). |
 | `picked` | Populated at queue time with the actual picked tags. |
+| `picked_series` / `picked_general` / `picked_prompt_example` | Hidden, GUI-managed: populated at queue time so the workflow / image metadata captures the resolved meta. Empty for headless callers — Python then aggregates meta from animadex presets itself. |
 
 Built-in pool: `data/character_pool_default.json` — ~3349 character tags sourced from animadex.net 1girl entries. Regenerable with `scripts/fetch_character_pool.py`.
 
 User pools are persisted in `data/user_character_pools.json` (gitignored) and managed via the in-node panel.
 
-**Connecting:** Wire `character_tags` → `AnimaPromptComposer.character`.
+**Connecting:** Wire `character_tags` → `AnimaPromptComposer.character`, `series` → `series`, `general` → `general` (or to AnimaTagPalette / situation outputs in parallel), and `prompt_example` → `natural_language` if you want the prompt example to influence the natural-language pass.
 
 ---
 

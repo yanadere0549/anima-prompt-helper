@@ -383,7 +383,12 @@ def extract_metadata(image_bytes: bytes) -> dict[str, Any]:
                     if ctype == "AnimaPromptComposer" and isinstance(wvals, list):
                         # widget order: quality, year, rating, count, character,
                         # series, artist, general, natural_language,
-                        # prefix_preset, [lora_trigger_words]
+                        # prefix_preset, [lora_trigger_words, artist_extra,
+                        # general_extra, natural_language_extra]. We only
+                        # surface the 9 canonical fields here; the *_extra
+                        # widgets are merged at compose time and end up in
+                        # the positive_prompt regardless, so re-importing the
+                        # main widget values is sufficient.
                         names = [
                             "quality",
                             "year",

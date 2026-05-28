@@ -249,10 +249,14 @@ def _load_negative_defaults() -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
+_EXTRAS_FIELDS: tuple[str, ...] = ("artist", "general", "natural_language")
+
+
 def join_fields(
     fields: dict[str, str],
     preset: str = "none",
     lora_trigger_words: list[str] | None = None,
+    extras: dict[str, str] | None = None,
 ) -> str:
     """Assemble the nine prompt fields into a single string.
 
@@ -264,6 +268,10 @@ def join_fields(
         - ``lora_trigger_words`` is either ``None`` or a ``list[str]``.
           Non-None, non-list values raise ``TypeError``.
           Each element must be a ``str``; non-str elements are silently skipped.
+        - ``extras`` is either ``None`` or a ``dict[str, str]`` whose recognised
+          keys are ``"artist"``, ``"general"``, and ``"natural_language"``.
+          Non-None, non-dict values raise ``TypeError``. Unknown keys and
+          non-string values are silently ignored.
 
     Postconditions:
         - Returns a ``str``; never ``None``.
@@ -282,14 +290,22 @@ def join_fields(
           model card's recommended prefix:
           ``masterpiece, best quality, high quality, newest, year 2025, year 2024,
           safe, game cg, <count>, ...``
+        - ``extras["artist"]`` / ``extras["general"]`` are appended to the
+          corresponding field's value with a ``", "`` separator before the
+          field is tokenised, so the resulting tokens still flow through the
+          normal comma-split / dedup-by-strip pipeline (and preset shadowing
+          on quality/year/rating is unaffected).
+        - ``extras["natural_language"]`` is appended to the natural_language
+          field with a ``". "`` separator (or used verbatim when the field is
+          empty), preserving the no-comma-split invariant for sentences.
 
     Invariants:
-        - Deterministic: identical ``fields``, ``preset``, and
-          ``lora_trigger_words`` produce identical output.
+        - Deterministic: identical ``fields``, ``preset``, ``lora_trigger_words``,
+          and ``extras`` produce identical output.
         - ``natural_language`` is never comma-split; it is appended verbatim
           (after stripping leading/trailing whitespace).
         - preset shadowing is logged at INFO level.
-        - The caller's ``fields`` dict is never mutated.
+        - The caller's ``fields`` and ``extras`` dicts are never mutated.
     """
     if not isinstance(fields, dict):
         raise TypeError(f"fields must be dict, got {type(fields).__name__}")
@@ -299,11 +315,46 @@ def join_fields(
         raise TypeError(
             f"lora_trigger_words must be list or None, got {type(lora_trigger_words).__name__}"
         )
+    if extras is not None and not isinstance(extras, dict):
+        raise TypeError(
+            f"extras must be dict or None, got {type(extras).__name__}"
+        )
 
     # Work on a copy so the caller's dict is not mutated.
     effective: dict[str, str] = {
         k: (v if isinstance(v, str) else "") for k, v in fields.items()
     }
+
+    # Merge per-field extras into the effective dict BEFORE preset shadowing
+    # so artist/general extras still flow through the normal tokenisation
+    # pipeline. Preset shadowing only touches quality/year/rating, which are
+    # NOT in _EXTRAS_FIELDS, so the two features are independent.
+    if extras:
+        for field_name in _EXTRAS_FIELDS:
+            extra_val = extras.get(field_name, "")
+            if not isinstance(extra_val, str):
+                continue
+            extra_val = extra_val.strip()
+            if not extra_val:
+                continue
+            base = effective.get(field_name, "")
+            base_stripped = base.strip() if isinstance(base, str) else ""
+            if field_name == "natural_language":
+                # ". " separator preserves the sentence boundary; the field
+                # is appended verbatim (not comma-split) by the main loop.
+                effective[field_name] = (
+                    base_stripped + ". " + extra_val
+                    if base_stripped
+                    else extra_val
+                )
+            else:
+                # Comma-separated fields: ", " separator. The downstream loop
+                # already strips / drops empties, so robustness is handled.
+                effective[field_name] = (
+                    base_stripped + ", " + extra_val
+                    if base_stripped
+                    else extra_val
+                )
 
     # Extra prefix token injected after rating (only for ooo_anima_default).
     extra_prefix: str = ""

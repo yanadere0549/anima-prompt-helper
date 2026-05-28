@@ -18,8 +18,10 @@ anima-prompt-helper/
 │   │                            ValidationIssue namedtuples.
 │   ├── artist_pool.py           parse_pool / pick_artists (seeded, no-replacement) /
 │   │                            load_default_pool / join_artists.
-│   ├── character_pool.py        parse_pool / pick_characters (seeded, no-replacement) /
-│   │                            load_default_pool / join_characters.
+│   ├── character_pool.py        parse_pool / pick_tags (seeded, no-replacement) /
+│   │                            load_default_pool / join_tags /
+│   │                            load_animadex_presets / aggregate_meta (series /
+│   │                            essential_general_tags / prompt_example for picks).
 │   ├── situation_pool.py        parse_pool / pick_situations (seeded, no-replacement) /
 │   │                            load_default_pool / join_situations.
 │   ├── metadata_extractor.py    Extracts Anima field values from PNG workflow/prompt

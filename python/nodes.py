@@ -123,6 +123,25 @@ class AnimaPromptComposer:
                     "STRING",
                     {"multiline": False, "forceInput": False, "default": ""},
                 ),
+                # *_extra inputs mirror the lora_trigger_words pattern: optional
+                # STRING widgets that accept both typed text and wired input
+                # (e.g. from AnimaCharacterRandomizer). Their content is
+                # appended to the matching widget value before the canonical
+                # join, so randomizer-supplied tags flow into positive_prompt
+                # WITHOUT overwriting whatever the user typed in the main
+                # widget.
+                "artist_extra": (
+                    "STRING",
+                    {"multiline": True, "forceInput": False, "default": ""},
+                ),
+                "general_extra": (
+                    "STRING",
+                    {"multiline": True, "forceInput": False, "default": ""},
+                ),
+                "natural_language_extra": (
+                    "STRING",
+                    {"multiline": True, "forceInput": False, "default": ""},
+                ),
             },
         }
 
@@ -145,12 +164,18 @@ class AnimaPromptComposer:
         natural_language: str,
         prefix_preset: str,
         lora_trigger_words: str = "",
+        artist_extra: str = "",
+        general_extra: str = "",
+        natural_language_extra: str = "",
     ) -> tuple[str]:
         """Assemble the nine fields into a positive prompt string.
 
         Preconditions:
             - All required parameters are ``str`` (ComfyUI guarantees this).
             - ``lora_trigger_words`` is a comma-separated ``str`` or ``""``.
+            - ``artist_extra`` / ``general_extra`` / ``natural_language_extra``
+              are ``str`` or ``""``. Each is appended to the matching widget
+              field via :func:`composer.join_fields`'s ``extras`` parameter.
         Postconditions:
             - Returns ``(str,)``; never raises unless an internal bug occurs.
         """
@@ -166,8 +191,14 @@ class AnimaPromptComposer:
             "natural_language": natural_language,
         }
 
-        # Warn if any artist token lacks @
-        for token in [t.strip() for t in artist.split(",") if t.strip()]:
+        # Warn if any artist token lacks @ (check the merged artist + extra so
+        # randomizer-supplied tokens are validated too).
+        combined_artist = artist
+        if isinstance(artist_extra, str) and artist_extra.strip():
+            combined_artist = (
+                artist + ", " + artist_extra if artist.strip() else artist_extra
+            )
+        for token in [t.strip() for t in combined_artist.split(",") if t.strip()]:
             if not token.startswith("@"):
                 logger.warning(
                     "Artist token '%s' does not start with '@'; "
@@ -184,7 +215,22 @@ class AnimaPromptComposer:
                 if t.strip()
             ]
 
-        result = _composer.join_fields(fields, preset=prefix_preset, lora_trigger_words=lora_words)
+        # Per-field extras: only include keys whose value is a non-empty str.
+        extras_map: dict[str, str] = {}
+        for key, value in (
+            ("artist", artist_extra),
+            ("general", general_extra),
+            ("natural_language", natural_language_extra),
+        ):
+            if isinstance(value, str) and value.strip():
+                extras_map[key] = value
+
+        result = _composer.join_fields(
+            fields,
+            preset=prefix_preset,
+            lora_trigger_words=lora_words,
+            extras=extras_map or None,
+        )
 
         if len(result) > 3000:
             logger.warning(
@@ -608,9 +654,16 @@ class AnimaCharacterRandomizer:
     """Random character-tag picker satellite node.
 
     Picks ``count`` distinct character tags at random from a saved pool and
-    emits them as a comma-separated STRING that can be wired into an
-    ``AnimaPromptComposer`` ``character`` input, or injected into a same-graph
-    composer via the panel's "Composerへ挿入" button.
+    emits four STRING outputs:
+        - ``character_tags``: comma-separated picked characters (wired into a
+          composer's ``character`` input, or injected via the panel).
+        - ``series``: comma-separated unique series names looked up from
+          ``animadex_character_presets.json`` for the picked characters.
+        - ``general``: comma-separated unique ``essential_general_tags`` from
+          all matched presets.
+        - ``prompt_example``: newline-separated ``prompt_example`` strings from
+          all matched presets (useful for the composer's natural_language
+          field).
 
     The ``pool`` is a comma/newline-separated buffer managed by the side panel
     (autocomplete suggest + locally-saved named pools). When it is empty the
@@ -623,24 +676,30 @@ class AnimaCharacterRandomizer:
     ``control_after_generate`` (increment / randomize) and ComfyUI's batch
     count to run "j times" and get j different character sets in one queue.
 
-    In the GUI the chosen characters are written into the ``picked`` widget at
-    queue time, so they are serialized into the workflow / prompt and embedded
-    in the saved image's metadata. ``randomize`` returns ``picked`` verbatim
-    when present.
+    In the GUI the chosen characters and their aggregated meta are written
+    into ``picked`` / ``picked_series`` / ``picked_general`` /
+    ``picked_prompt_example`` at queue time, so they are serialized into the
+    workflow / prompt and embedded in the saved image's metadata. ``randomize``
+    returns the GUI-recorded values verbatim when ``picked`` is non-empty;
+    otherwise (headless / API) it seed-picks and aggregates meta from
+    ``animadex_character_presets.json`` itself.
 
     Preconditions (enforced by ComfyUI):
         - ``count`` is an int >= 1.
         - ``seed`` is a non-negative int.
-        - ``pool`` is a str.
+        - ``pool``, ``picked``, ``picked_series``, ``picked_general``,
+          ``picked_prompt_example`` are strings.
     Postconditions:
-        - Returns a 1-tuple ``(str,)``; ``""`` only when both the pool and the
-          built-in default are empty.
+        - Returns a 4-tuple ``(character_tags, series, general,
+          prompt_example)``. Each element may be ``""`` (e.g. no matching
+          preset). ``character_tags`` is ``""`` only when both the pool and
+          the built-in default are empty.
     """
 
     CATEGORY = "Anima"
     FUNCTION = "randomize"
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("character_tags",)
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("character_tags", "series", "general", "prompt_example")
     OUTPUT_NODE = False
 
     @classmethod
@@ -670,26 +729,57 @@ class AnimaCharacterRandomizer:
                 # image's metadata. Left empty for headless / API callers, in
                 # which case Python falls back to its own seeded selection.
                 "picked": ("STRING", {"multiline": False, "default": ""}),
+                # picked_* widgets carry the meta the GUI panel resolved
+                # against CharacterPresetStore (which knows about user
+                # presets), so the workflow records exactly what the GUI
+                # surfaced. Headless callers leave them empty; Python then
+                # aggregates meta from data/animadex_character_presets.json.
+                "picked_series": ("STRING", {"multiline": False, "default": ""}),
+                "picked_general": ("STRING", {"multiline": True, "default": ""}),
+                "picked_prompt_example": (
+                    "STRING",
+                    {"multiline": True, "default": ""},
+                ),
             },
         }
 
     def randomize(
-        self, count: int, seed: int, pool: str, picked: str = ""
-    ) -> tuple[str]:
-        """Return the character tags for this run (seed-reproducible).
+        self,
+        count: int,
+        seed: int,
+        pool: str,
+        picked: str = "",
+        picked_series: str = "",
+        picked_general: str = "",
+        picked_prompt_example: str = "",
+    ) -> tuple[str, str, str, str]:
+        """Return the picked characters and aggregated meta for this run.
 
         Preconditions:
-            - ``count`` and ``seed`` are ints; ``pool`` and ``picked`` are str.
+            - ``count`` and ``seed`` are ints; remaining args are str.
         Postconditions:
-            - Returns ``(str,)``; never raises for valid ComfyUI inputs.
-            - When ``picked`` is non-empty (GUI path) it is returned verbatim so
-              the output matches exactly what was recorded in the image metadata.
-            - Otherwise (headless / API) a fresh seeded selection from ``pool``
-              (or the built-in default pool) is returned.
+            - Returns ``(character_tags, series, general, prompt_example)``.
+              Never raises for valid ComfyUI inputs.
+            - When ``picked`` is non-empty (GUI path) the four GUI-recorded
+              widgets are returned verbatim so output matches exactly what
+              was recorded in the image metadata.
+            - Otherwise (headless / API) a fresh seeded selection from
+              ``pool`` (or the built-in default pool) is returned, with meta
+              aggregated from ``data/animadex_character_presets.json``.
         """
-        # GUI path: the panel already chose and recorded the characters.
+        # GUI path: the panel already chose characters AND resolved meta
+        # against its own preset store (which includes user presets), so
+        # trust those widgets verbatim — empty values mean no match was
+        # found by the GUI, which is authoritative.
         if isinstance(picked, str) and picked.strip():
-            return (picked.strip(),)
+            return (
+                picked.strip(),
+                picked_series.strip() if isinstance(picked_series, str) else "",
+                picked_general.strip() if isinstance(picked_general, str) else "",
+                picked_prompt_example.strip()
+                if isinstance(picked_prompt_example, str)
+                else "",
+            )
 
         tags = _character_pool.parse_pool(pool)
         if not tags:
@@ -704,12 +794,18 @@ class AnimaCharacterRandomizer:
         if not tags:
             logger.warning(
                 "AnimaCharacterRandomizer: no character tags available (pool "
-                "empty and default pool missing); returning empty string."
+                "empty and default pool missing); returning empty strings."
             )
-            return ("",)
+            return ("", "", "", "")
 
         chosen = _character_pool.pick_tags(tags, count, seed)
-        return (_character_pool.join_tags(chosen),)
+        series, general, prompt_example = _character_pool.aggregate_meta(chosen)
+        return (
+            _character_pool.join_tags(chosen),
+            series,
+            general,
+            prompt_example,
+        )
 
 
 # ---------------------------------------------------------------------------

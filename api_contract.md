@@ -749,18 +749,26 @@ None. The endpoint always returns HTTP 200 with a parseable JSON body.
 | `seed` | `INT` | RNG seed. Supports `control_after_generate`. |
 | `pool_source` | `STRING` | Pool id to draw from. `"default"` uses the built-in pool. |
 | `picked` | `STRING` (hidden) | Populated at queue time with the comma-separated list of actually picked tags. Embedded in image metadata. |
+| `picked_series` | `STRING` (hidden) | Populated at queue time by the panel from `CharacterPresetStore` (animadex + user presets). Comma-joined unique series names of matched presets. Embedded in image metadata. |
+| `picked_general` | `STRING` (hidden, multiline) | Populated at queue time. Comma-joined unique `essential_general_tags` of matched presets. Embedded in image metadata. |
+| `picked_prompt_example` | `STRING` (hidden, multiline) | Populated at queue time. Newline-joined `prompt_example` strings of matched presets. Embedded in image metadata. |
 
 ### Outputs
 
 | Name | Type | Notes |
 |------|------|-------|
 | `character_tags` | `STRING` | Comma-separated character name tags. Empty string if pool is empty. |
+| `series` | `STRING` | Comma-joined unique series names aggregated from matched animadex presets. Empty if no preset matched. |
+| `general` | `STRING` | Comma-joined unique `essential_general_tags` aggregated from matched presets. Empty if none matched. |
+| `prompt_example` | `STRING` | Newline-joined `prompt_example` strings of matched presets. Empty if none matched. |
 
 ### Invariants
 - Selection is seeded and deterministic.
 - Falls back to built-in pool when `pool_source` points to an empty or missing user pool.
 - Tags are lowercase Danbooru-style character names (no `@` prefix).
-- Returns a 1-tuple `(str,)`. Never raises on empty pool (returns `""`).
+- Returns a 4-tuple `(character_tags, series, general, prompt_example)`. Never raises on empty pool (returns `("", "", "", "")`).
+- GUI path (non-empty `picked`): all four outputs come verbatim from the hidden `picked` / `picked_*` widgets the panel populated at queue time, so the workflow / image metadata record exactly what the GUI surfaced.
+- Headless path (empty `picked`): meta is aggregated from `data/animadex_character_presets.json` via `python.character_pool.aggregate_meta(picks)`. Series / general are de-duplicated case-insensitively (first-seen order preserved); `prompt_example` is newline-joined in pick order without de-duplication.
 
 ---
 

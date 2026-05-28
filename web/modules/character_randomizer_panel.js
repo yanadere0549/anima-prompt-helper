@@ -132,10 +132,10 @@ function getActiveTags(node) {
   return builtin ? (builtin.tags || []).slice() : [];
 }
 
-/** Write the comma-joined picks into the node's serialized ``picked`` widget. */
-function setPickedWidget(node, value) {
+/** Write a string into a named widget on ``node`` (no-op if not present). */
+function _setStringWidget(node, name, value) {
   const w = Array.isArray(node.widgets)
-    ? node.widgets.find((x) => x.name === "picked")
+    ? node.widgets.find((x) => x.name === name)
     : null;
   if (!w) return;
   w.value = value;
@@ -146,10 +146,70 @@ function setPickedWidget(node, value) {
   }
 }
 
+/** Write the comma-joined picks into the node's serialized ``picked`` widget. */
+function setPickedWidget(node, value) {
+  _setStringWidget(node, "picked", value);
+}
+
 /**
- * Populate the ``picked`` widget of every AnimaCharacterRandomizer node in the
- * graph from its pool, count and seed. Called from the ``app.graphToPrompt``
- * hook at queue time so the chosen characters are serialized into the workflow /
+ * Aggregate series / general / prompt_example for picked character tags by
+ * looking each up in ``CharacterPresetStore`` (animadex + user presets).
+ *
+ * Mirrors python.character_pool.aggregate_meta:
+ *   - series: comma-joined unique series names (case-insensitive dedup)
+ *   - general: comma-joined unique essential_general_tags (case-insensitive dedup)
+ *   - promptExample: newline-joined prompt_example strings (in pick order)
+ *
+ * Characters with no matching preset are skipped silently.
+ *
+ * @param {string[]} picks
+ * @returns {{series: string, general: string, promptExample: string}}
+ */
+function aggregatePresetMeta(picks) {
+  const series = [];
+  const seriesSeen = new Set();
+  const general = [];
+  const generalSeen = new Set();
+  const promptExamples = [];
+  for (const tag of picks) {
+    if (typeof tag !== "string") continue;
+    const preset = CharacterPresetStore.findPresetByCharacter(tag);
+    if (!preset) continue;
+    if (typeof preset.series === "string" && preset.series.trim()) {
+      const key = preset.series.trim().toLowerCase();
+      if (!seriesSeen.has(key)) {
+        seriesSeen.add(key);
+        series.push(preset.series.trim());
+      }
+    }
+    const gtags = Array.isArray(preset.essential_general_tags)
+      ? preset.essential_general_tags
+      : [];
+    for (const g of gtags) {
+      if (typeof g === "string" && g.trim()) {
+        const key = g.trim().toLowerCase();
+        if (!generalSeen.has(key)) {
+          generalSeen.add(key);
+          general.push(g.trim());
+        }
+      }
+    }
+    if (typeof preset.prompt_example === "string" && preset.prompt_example.trim()) {
+      promptExamples.push(preset.prompt_example.trim());
+    }
+  }
+  return {
+    series: series.join(", "),
+    general: general.join(", "),
+    promptExample: promptExamples.join("\n"),
+  };
+}
+
+/**
+ * Populate the ``picked`` and ``picked_*`` meta widgets of every
+ * AnimaCharacterRandomizer node in the graph from its pool, count and seed.
+ * Called from the ``app.graphToPrompt`` hook at queue time so the chosen
+ * characters and their resolved meta are serialized into the workflow /
  * prompt and embedded in the saved image's metadata.
  *
  * @param {Object} graph - LiteGraph graph instance
@@ -159,9 +219,19 @@ export function populateCharacterRandomizers(graph) {
   for (const node of graph._nodes) {
     if (!node || node.type !== "AnimaCharacterRandomizer") continue;
     const tags = getActiveTags(node);
-    if (!tags.length) { setPickedWidget(node, ""); continue; }
+    if (!tags.length) {
+      setPickedWidget(node, "");
+      _setStringWidget(node, "picked_series", "");
+      _setStringWidget(node, "picked_general", "");
+      _setStringWidget(node, "picked_prompt_example", "");
+      continue;
+    }
     const picked = seededPickTags(tags, getCount(node), getSeed(node));
     setPickedWidget(node, picked.join(", "));
+    const meta = aggregatePresetMeta(picked);
+    _setStringWidget(node, "picked_series", meta.series);
+    _setStringWidget(node, "picked_general", meta.general);
+    _setStringWidget(node, "picked_prompt_example", meta.promptExample);
   }
 }
 
@@ -224,11 +294,19 @@ function _setNaturalLanguage(composer, value) {
  * @param {Object} node - AnimaCharacterRandomizer LiteGraph node instance
  */
 export function injectCharacterRandomizerPanel(node) {
-  // --- Hide the pool + picked widgets (both managed via the panel) ---
-  // ``picked`` is still serialized while hidden, so the characters chosen at
-  // queue time land in the workflow / prompt metadata even though the widget
-  // is not shown; the panel surfaces them in the preview area instead.
-  for (const name of ["pool", "picked"]) {
+  // --- Hide the pool + picked* widgets (all managed via the panel) ---
+  // ``picked`` and ``picked_series`` / ``picked_general`` /
+  // ``picked_prompt_example`` are still serialized while hidden, so the
+  // characters chosen at queue time AND their resolved meta land in the
+  // workflow / prompt metadata even though the widgets are not shown;
+  // the panel surfaces the picks themselves in the preview area instead.
+  for (const name of [
+    "pool",
+    "picked",
+    "picked_series",
+    "picked_general",
+    "picked_prompt_example",
+  ]) {
     const w = Array.isArray(node.widgets)
       ? node.widgets.find((x) => x.name === name)
       : null;

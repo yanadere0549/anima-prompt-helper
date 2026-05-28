@@ -464,10 +464,10 @@ Three randomizer nodes let you pull random tags from curated pools and wire them
 
 ### The three randomizer nodes
 
-| Node | Class | Output widget | Default target field | Built-in pool source |
+| Node | Class | Output widget(s) | Default target field(s) | Built-in pool source |
 |---|---|---|---|---|
 | Anima Artist Randomizer | `AnimaArtistRandomizer` | `artist_tags` | `artist` | animadex.net score ≥ 0.5 (3,195 tags) |
-| Anima Character Randomizer | `AnimaCharacterRandomizer` | `character_tags` | `character` | animadex.net 1girl characters (~3,349 tags) |
+| Anima Character Randomizer | `AnimaCharacterRandomizer` | `character_tags`, `series`, `general`, `prompt_example` | `character`, `series`, `general`, `natural_language` | animadex.net 1girl characters (~3,349 tags) |
 | Anima Situation Randomizer | `AnimaSituationRandomizer` | `situation_tags` | `general` | Danbooru general tags (~293 tags) |
 
 ### Pool types: built-in vs user pools
@@ -494,12 +494,28 @@ Use the `pool_source` dropdown to pick a pool. To use the built-in defaults, lea
 Connect the output STRING from the randomizer to the matching field on an `AnimaPromptComposer`:
 
 ```
-[Anima Character Randomizer] --character_tags--> [AnimaPromptComposer] character
-[Anima Situation Randomizer] --situation_tags--> [AnimaPromptComposer] general
-[Anima Artist Randomizer]    --artist_tags-----> [AnimaPromptComposer] artist
+[Anima Character Randomizer] --character_tags---> [AnimaPromptComposer] character
+                             --series-----------> [AnimaPromptComposer] series
+                             --general----------> [AnimaPromptComposer] general
+                             --prompt_example---> [AnimaPromptComposer] natural_language
+[Anima Situation Randomizer] --situation_tags---> [AnimaPromptComposer] general
+[Anima Artist Randomizer]    --artist_tags------> [AnimaPromptComposer] artist
 ```
 
-When a Composer field is connected this way, the widget for that field becomes a `forceInput` port and the randomizer's output value flows through at queue time.
+The character randomizer's `series` / `general` / `prompt_example` outputs are aggregated from `data/animadex_character_presets.json` for each picked character — `series` is comma-joined and de-duplicated, `general` is the union of each preset's `essential_general_tags` (comma-joined, de-duplicated), and `prompt_example` is the newline-joined preset examples. Picked characters without a matching preset contribute the empty string to those outputs.
+
+When a Composer field is connected this way, the widget for that field becomes a `forceInput` port and the randomizer's output value flows through at queue time **overwriting** whatever the user typed into the widget.
+
+If you want randomizer output to merge **alongside** your typed widget content instead of replacing it, wire to the matching `*_extra` optional input on the Composer instead:
+
+```
+[Anima Character Randomizer] --series--------> [AnimaPromptComposer] series_extra ❌  (does not exist)
+                             --general-------> [AnimaPromptComposer] general_extra ✅
+                             --prompt_example-> [AnimaPromptComposer] natural_language_extra ✅
+[Anima Artist Randomizer]    --artist_tags---> [AnimaPromptComposer] artist_extra ✅
+```
+
+`*_extra` inputs accept both typed text and wired input. At compose time the extra value is appended to the main field with the canonical separator (`", "` for artist/general, `". "` for natural_language) before the standard tokenisation — so wired tags are added rather than replacing your typed values. There is no `series_extra`: the Composer has only `series` (wire there if you want randomizer's series to overwrite, or pre-join it into `series` upstream if you want merge semantics).
 
 ### Step 5: Preview before queuing
 
@@ -522,7 +538,13 @@ In the randomizer panel:
 
 ### Meta information auto-insert (AnimaCharacterRandomizer)
 
-When using the **「character欄へ挿入」** button in the AnimaCharacterRandomizer panel, a **「メタ情報も挿入 (series/general/prompt_example)」** checkbox appears to the right of the button.
+There are **two ways** to flow meta info (series / general / prompt_example) from a randomly picked character into a Composer — pick whichever fits the graph:
+
+**1. Wire the dedicated output ports (recommended for fully-graph workflows).**
+The node exposes `series`, `general`, and `prompt_example` STRING outputs alongside `character_tags`. Connect each to the Composer's `series`, `general`, and `natural_language` fields. Meta is aggregated from the matching animadex presets at queue time (Python path) — or, when the GUI panel is in use, from `CharacterPresetStore` (animadex + your user presets) so user-customised entries flow through too. Characters with no matching preset contribute the empty string to those outputs.
+
+**2. One-shot "character欄へ挿入" button (recommended for ad-hoc edits).**
+The panel still has a **「メタ情報も挿入 (series/general/prompt_example)」** checkbox next to the **「character欄へ挿入」** button:
 
 | Checkbox state | Behavior |
 |---|---|

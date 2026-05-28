@@ -14,6 +14,7 @@ _ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_ROOT))
 
 from python.composer import join_fields, OOO_ANIMA_DEFAULTS, CANONICAL_ORDER, _load_ooo_anima_defaults
+from python.nodes import AnimaPromptComposer
 
 
 # ---------------------------------------------------------------------------
@@ -291,3 +292,252 @@ def test_lora_trigger_words_with_ooo_anima_preset() -> None:
     assert "no lineart" in result
     # Must come after general section (1girl is count, comes before general)
     assert "1girl" in result
+
+
+# ---------------------------------------------------------------------------
+# extras argument (artist / general / natural_language append)
+# ---------------------------------------------------------------------------
+
+
+def test_extras_none_is_noop() -> None:
+    """extras=None must produce identical output to not passing it."""
+    fields = {"general": "1girl"}
+    assert join_fields(fields, extras=None) == join_fields(fields)
+
+
+def test_extras_empty_dict_is_noop() -> None:
+    """extras={} must produce identical output to not passing it."""
+    fields = {"general": "1girl"}
+    assert join_fields(fields, extras={}) == join_fields(fields)
+
+
+def test_extras_artist_appended_to_artist_field() -> None:
+    """extras['artist'] tokens are appended to the artist field, before general."""
+    result = join_fields(
+        {"artist": "@wlop", "general": "1girl"},
+        extras={"artist": "@kantoku"},
+    )
+    # Both artist tokens must appear, and they must precede the general tokens.
+    assert "@wlop" in result and "@kantoku" in result
+    assert result.index("@wlop") < result.index("@kantoku") < result.index("1girl")
+
+
+def test_extras_artist_into_empty_field() -> None:
+    """extras['artist'] alone (no base) still produces the artist tokens."""
+    result = join_fields({"general": "1girl"}, extras={"artist": "@kantoku"})
+    assert "@kantoku" in result
+    assert result.index("@kantoku") < result.index("1girl")
+
+
+def test_extras_general_appended_to_general_field() -> None:
+    """extras['general'] tokens are appended to the general field."""
+    result = join_fields(
+        {"general": "1girl, smile"},
+        extras={"general": "blue eyes, long hair"},
+    )
+    assert "1girl" in result and "smile" in result
+    assert "blue eyes" in result and "long hair" in result
+    # Base tokens come before extras
+    assert result.index("1girl") < result.index("blue eyes")
+
+
+def test_extras_natural_language_appended_with_period_separator() -> None:
+    """extras['natural_language'] is appended to natural_language with '. '."""
+    result = join_fields(
+        {"general": "1girl", "natural_language": "She is smiling."},
+        extras={"natural_language": "Standing in a forest."},
+    )
+    # The natural_language section is joined to the rest with '. ', and the
+    # extra is in turn joined with another '. '.
+    assert "She is smiling.. Standing in a forest." in result
+
+
+def test_extras_natural_language_into_empty_field() -> None:
+    """extras['natural_language'] without a base value is used verbatim."""
+    result = join_fields(
+        {"general": "1girl"},
+        extras={"natural_language": "She is dancing."},
+    )
+    assert result.endswith(". She is dancing.")
+
+
+def test_extras_skips_empty_and_whitespace_only() -> None:
+    """Empty / whitespace-only extras values are dropped silently."""
+    result = join_fields(
+        {"artist": "@wlop"},
+        extras={"artist": "   ", "general": "", "natural_language": "\t\n"},
+    )
+    # No extra content, no errors
+    assert result == "@wlop"
+
+
+def test_extras_ignores_non_string_values() -> None:
+    """Non-string extras values are silently skipped, not raised on."""
+    result = join_fields(
+        {"general": "1girl"},
+        extras={"artist": None, "general": 42, "natural_language": ["x"]},  # type: ignore[dict-item]
+    )
+    assert result == "1girl"
+
+
+def test_extras_ignores_unknown_keys() -> None:
+    """extras keys outside {'artist','general','natural_language'} are ignored."""
+    result = join_fields(
+        {"general": "1girl"},
+        extras={"character": "asuka", "quality": "masterpiece"},
+    )
+    # Neither key gets merged.
+    assert "asuka" not in result and "masterpiece" not in result
+    assert result == "1girl"
+
+
+def test_extras_type_error_on_non_dict() -> None:
+    """Passing a non-dict, non-None extras must raise TypeError."""
+    with pytest.raises(TypeError):
+        join_fields({}, extras="artist=foo")  # type: ignore[arg-type]
+
+
+def test_extras_does_not_mutate_caller_dicts() -> None:
+    """Caller's fields and extras dicts must not be mutated."""
+    fields = {"artist": "@wlop", "general": "1girl"}
+    extras = {"artist": "@kantoku", "general": "blue eyes"}
+    fields_before = dict(fields)
+    extras_before = dict(extras)
+    _ = join_fields(fields, extras=extras)
+    assert fields == fields_before
+    assert extras == extras_before
+
+
+def test_extras_combines_with_lora_trigger_words() -> None:
+    """extras and lora_trigger_words can be combined; both contribute tokens."""
+    result = join_fields(
+        {"general": "1girl"},
+        extras={"general": "blue eyes"},
+        lora_trigger_words=["flat color"],
+    )
+    # general extra is part of general section; lora trigger words come after.
+    assert (
+        result.index("1girl")
+        < result.index("blue eyes")
+        < result.index("flat color")
+    )
+
+
+def test_extras_with_ooo_anima_preset_does_not_touch_quality() -> None:
+    """Preset shadowing on quality/year/rating is unaffected by extras."""
+    result = join_fields(
+        {"count": "1girl"},
+        preset="ooo_anima_default",
+        extras={"general": "blue eyes", "natural_language": "She is smiling."},
+    )
+    # Preset still injects quality / year / rating values.
+    assert "masterpiece" in result.lower() or "best quality" in result.lower()
+    # extras still flow through.
+    assert "blue eyes" in result
+    assert "She is smiling." in result
+
+
+# ---------------------------------------------------------------------------
+# AnimaPromptComposer node: optional inputs (artist_extra / general_extra /
+# natural_language_extra)
+# ---------------------------------------------------------------------------
+
+
+def _compose_defaults() -> dict:
+    """Minimal set of required arguments for AnimaPromptComposer.compose."""
+    return {
+        "quality": "",
+        "year": "",
+        "rating": "safe",
+        "count": "",
+        "character": "",
+        "series": "",
+        "artist": "",
+        "general": "",
+        "natural_language": "",
+        "prefix_preset": "none",
+    }
+
+
+def test_node_input_types_exposes_extra_inputs() -> None:
+    """INPUT_TYPES advertises the three new optional *_extra widgets."""
+    schema = AnimaPromptComposer.INPUT_TYPES()
+    optional = schema["optional"]
+    assert "artist_extra" in optional
+    assert "general_extra" in optional
+    assert "natural_language_extra" in optional
+    for key in ("artist_extra", "general_extra", "natural_language_extra"):
+        assert optional[key][0] == "STRING"
+        assert optional[key][1].get("default") == ""
+        assert optional[key][1].get("multiline") is True
+
+
+def test_node_compose_defaults_unchanged_without_extras() -> None:
+    """When no *_extra is passed, compose() output matches the baseline."""
+    node = AnimaPromptComposer()
+    args = _compose_defaults()
+    args["general"] = "1girl, smile"
+    baseline = node.compose(**args)
+    with_blank_extras = node.compose(
+        **args,
+        artist_extra="",
+        general_extra="",
+        natural_language_extra="",
+    )
+    assert baseline == with_blank_extras
+
+
+def test_node_compose_artist_extra_merges_into_artist() -> None:
+    """artist_extra is appended into the artist section of positive_prompt."""
+    node = AnimaPromptComposer()
+    args = _compose_defaults()
+    args["artist"] = "@wlop"
+    args["general"] = "1girl"
+    out = node.compose(**args, artist_extra="@kantoku, @anmi")
+    text = out[0]
+    assert "@wlop" in text and "@kantoku" in text and "@anmi" in text
+    # Artist tokens precede the general "1girl"
+    assert text.index("@kantoku") < text.index("1girl")
+    assert text.index("@anmi") < text.index("1girl")
+
+
+def test_node_compose_general_extra_merges_into_general() -> None:
+    """general_extra is appended into the general section of positive_prompt."""
+    node = AnimaPromptComposer()
+    args = _compose_defaults()
+    args["general"] = "1girl, smile"
+    out = node.compose(**args, general_extra="blue eyes, long hair")
+    text = out[0]
+    for token in ("1girl", "smile", "blue eyes", "long hair"):
+        assert token in text
+
+
+def test_node_compose_natural_language_extra_appended_after_period() -> None:
+    """natural_language_extra is joined with ". " to natural_language."""
+    node = AnimaPromptComposer()
+    args = _compose_defaults()
+    args["general"] = "1girl"
+    args["natural_language"] = "She is smiling."
+    out = node.compose(**args, natural_language_extra="Standing in a forest.")
+    text = out[0]
+    # nl section is joined to comma-tokens with ". " then extras with ". "
+    assert "She is smiling.. Standing in a forest." in text
+
+
+def test_node_compose_extras_combine_with_lora_trigger_words() -> None:
+    """Both optional knobs may be used simultaneously."""
+    node = AnimaPromptComposer()
+    args = _compose_defaults()
+    args["general"] = "1girl"
+    out = node.compose(
+        **args,
+        general_extra="blue eyes",
+        lora_trigger_words="flat color",
+    )
+    text = out[0]
+    # canonical order: general (1girl + blue eyes) before lora trigger words
+    assert (
+        text.index("1girl")
+        < text.index("blue eyes")
+        < text.index("flat color")
+    )
