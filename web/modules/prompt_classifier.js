@@ -120,10 +120,14 @@ export function buildTagToFieldMap(palette) {
 }
 
 /**
- * Build a lookup map ``{ characterTag: presetId }`` from the character preset
- * store. Used to nudge canonical character tokens into the ``character``
- * field, since the global palette only covers a tiny curated subset of
- * Danbooru characters.
+ * Build a lookup map ``{ tag: composerField }`` from the character preset
+ * store. Used to nudge canonical character/series tokens into the
+ * ``character`` / ``series`` fields, since the global palette only covers a
+ * tiny curated subset of Danbooru characters.
+ *
+ * The value is ALWAYS a composer field name (``"character"`` or ``"series"``),
+ * never a preset id — ``classifyToken`` returns it verbatim as the destination
+ * bucket, so a non-field value would crash ``classifyPrompt``.
  *
  * @param {Array<Object>|null} presets - merged character presets
  * @returns {Map<string, string>}
@@ -138,7 +142,7 @@ export function buildCharacterTagMap(presets) {
     if (!character) continue;
     for (const tok of character.split(",")) {
       const t = tok.trim().toLowerCase();
-      if (t) map.set(t, p.id || character);
+      if (t) map.set(t, "character");
     }
     const series = typeof p.series === "string" ? p.series : "";
     if (series) {
@@ -289,8 +293,12 @@ export function classifyPrompt(text, paletteMap, characterMap, preExtractedField
   const pushUnique = (field, token) => {
     const key = _bareTag(token).toLowerCase();
     if (!key || seen.has(key)) return;
+    // Defensive: honour the "never throws" contract — an unexpected field
+    // (e.g. a stray non-bucket value) falls back to ``general`` instead of
+    // dereferencing an undefined bucket.
+    const target = Array.isArray(buckets[field]) ? field : "general";
     seen.add(key);
-    buckets[field].push(token.trim());
+    buckets[target].push(token.trim());
   };
 
   // Honor backend-extracted Anima fields first — they're the source of truth
