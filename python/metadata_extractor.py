@@ -164,6 +164,10 @@ def _extract_from_comfyui_prompt(prompt_json: dict) -> dict[str, Any] | None:
     # a literal string here); the actual artists live in the randomizer's
     # ``picked`` widget, which it records into the image metadata at queue time.
     randomizer_picked: list[str] = []
+    character_randomizer_picks: dict[str, list[str]] = {
+        "character": [], "series": [], "general": [], "natural_language": []
+    }
+    situation_randomizer_picks: list[str] = []
 
     for node in prompt_json.values():
         if not isinstance(node, dict):
@@ -217,6 +221,23 @@ def _extract_from_comfyui_prompt(prompt_json: dict) -> dict[str, Any] | None:
             picked = inputs.get("picked")
             if isinstance(picked, str) and picked.strip():
                 randomizer_picked.append(picked.strip())
+        elif class_type == "AnimaCharacterRandomizer":
+            picked_char = inputs.get("picked")
+            if isinstance(picked_char, str) and picked_char.strip():
+                character_randomizer_picks["character"].append(picked_char.strip())
+            picked_ser = inputs.get("picked_series")
+            if isinstance(picked_ser, str) and picked_ser.strip():
+                character_randomizer_picks["series"].append(picked_ser.strip())
+            picked_gen = inputs.get("picked_general")
+            if isinstance(picked_gen, str) and picked_gen.strip():
+                character_randomizer_picks["general"].append(picked_gen.strip())
+            picked_pe = inputs.get("picked_prompt_example")
+            if isinstance(picked_pe, str) and picked_pe.strip():
+                character_randomizer_picks["natural_language"].append(picked_pe.strip())
+        elif class_type == "AnimaSituationRandomizer":
+            picked_sit = inputs.get("picked")
+            if isinstance(picked_sit, str) and picked_sit.strip():
+                situation_randomizer_picks.append(picked_sit.strip())
         elif class_type in _COMFYUI_TEXT_NODE_CLASSES:
             t = inputs.get("text") or inputs.get("text_g") or inputs.get("text_l")
             if isinstance(t, str) and t.strip():
@@ -250,6 +271,76 @@ def _extract_from_comfyui_prompt(prompt_json: dict) -> dict[str, Any] | None:
                 anima_positive = anima_positive + ", " + artist_str
             else:
                 anima_positive = artist_str
+
+    # Character randomizer picks → anima_fields にマージ（新規トークンのみ anima_positive に追加）
+    for field, picks in character_randomizer_picks.items():
+        if not picks:
+            continue
+        existing = (anima_fields or {}).get(field, "") if anima_fields else ""
+        # Composer literal 由来のトークンセット（重複検出の基準）
+        if field == "natural_language":
+            composer_tokens: set[str] = {ln.strip().lower() for ln in existing.split("\n") if ln.strip()}
+        else:
+            composer_tokens = {tok.strip().lower() for tok in existing.split(",") if tok.strip()}
+
+        # picks 側から新規トークンのみ抽出（順序保持）
+        new_tokens: list[str] = []
+        seen: set[str] = set(composer_tokens)
+        for source in picks:
+            if field == "natural_language":
+                for line in source.split("\n"):
+                    ln = line.strip()
+                    if ln and ln.lower() not in seen:
+                        seen.add(ln.lower())
+                        new_tokens.append(ln)
+            else:
+                for tok in source.split(","):
+                    t = tok.strip()
+                    if t and t.lower() not in seen:
+                        seen.add(t.lower())
+                        new_tokens.append(t)
+
+        if new_tokens:
+            if anima_fields is None:
+                anima_fields = {}
+            if field == "natural_language":
+                existing_lines = [ln.strip() for ln in existing.split("\n") if ln.strip()] if existing else []
+                anima_fields[field] = "\n".join(existing_lines + new_tokens)
+            else:
+                existing_toks = [tok.strip() for tok in existing.split(",") if tok.strip()] if existing else []
+                anima_fields[field] = ", ".join(existing_toks + new_tokens)
+                # natural_language は positive から除外（Artist と整合）
+                new_str = ", ".join(new_tokens)
+                if anima_positive is None:
+                    anima_positive = new_str
+                else:
+                    anima_positive = anima_positive + ", " + new_str
+
+    # Situation randomizer picks → anima_fields["general"] にマージ
+    # Character マージ後の anima_fields["general"] を seen の基準にする（順序依存）
+    if situation_randomizer_picks:
+        existing_general = (anima_fields or {}).get("general", "") if anima_fields else ""
+        composer_tokens_gen: set[str] = {tok.strip().lower() for tok in existing_general.split(",") if tok.strip()}
+
+        new_tokens_sit: list[str] = []
+        seen_sit: set[str] = set(composer_tokens_gen)
+        for source in situation_randomizer_picks:
+            for tok in source.split(","):
+                t = tok.strip()
+                if t and t.lower() not in seen_sit:
+                    seen_sit.add(t.lower())
+                    new_tokens_sit.append(t)
+
+        if new_tokens_sit:
+            if anima_fields is None:
+                anima_fields = {}
+            existing_toks_gen = [tok.strip() for tok in existing_general.split(",") if tok.strip()] if existing_general else []
+            anima_fields["general"] = ", ".join(existing_toks_gen + new_tokens_sit)
+            new_str_sit = ", ".join(new_tokens_sit)
+            if anima_positive is None:
+                anima_positive = new_str_sit
+            else:
+                anima_positive = anima_positive + ", " + new_str_sit
 
     positive = anima_positive
     negative = anima_negative
@@ -419,6 +510,23 @@ def extract_metadata(image_bytes: bytes) -> dict[str, Any]:
                         # widget order: count, seed, control_after_generate,
                         # pool, picked. picked (index 4) holds the artists
                         # chosen for the run; pool (index 3) is the full pool.
+                        if len(wvals) >= 5 and isinstance(wvals[4], str):
+                            inputs["picked"] = wvals[4]
+                    elif ctype == "AnimaCharacterRandomizer" and isinstance(wvals, list):
+                        # widget order: count(0), seed(1), control_after_generate(2),
+                        #               pool(3), picked(4), picked_series(5),
+                        #               picked_general(6), picked_prompt_example(7)
+                        if len(wvals) >= 5 and isinstance(wvals[4], str):
+                            inputs["picked"] = wvals[4]
+                        if len(wvals) >= 6 and isinstance(wvals[5], str):
+                            inputs["picked_series"] = wvals[5]
+                        if len(wvals) >= 7 and isinstance(wvals[6], str):
+                            inputs["picked_general"] = wvals[6]
+                        if len(wvals) >= 8 and isinstance(wvals[7], str):
+                            inputs["picked_prompt_example"] = wvals[7]
+                    elif ctype == "AnimaSituationRandomizer" and isinstance(wvals, list):
+                        # widget order: count(0), seed(1), control_after_generate(2),
+                        #               pool(3), picked(4)
                         if len(wvals) >= 5 and isinstance(wvals[4], str):
                             inputs["picked"] = wvals[4]
                     elif ctype in _COMFYUI_TEXT_NODE_CLASSES and isinstance(wvals, list):
