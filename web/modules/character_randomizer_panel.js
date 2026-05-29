@@ -124,6 +124,28 @@ function getSeed(node) {
   return Math.max(0, _intWidget(node, "seed", 0));
 }
 
+/** Generate a new random seed within JS-safe integer range. */
+function _generateRandomSeed() {
+  // Number.MAX_SAFE_INTEGER 以下で安全に整数を生成（0xFFFFFFFFFFFFFF は
+  // MAX_SAFE_INTEGER を超えて浮動小数点精度が失われるため使用しない）
+  return Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+}
+
+/** Write a new seed value into the node's seed widget and fire an input event. */
+function _setSeedWidget(node, seedValue) {
+  const w = Array.isArray(node.widgets)
+    ? node.widgets.find((x) => x.name === "seed")
+    : null;
+  if (!w) return;
+  w.value = seedValue;
+  if (w.element && "value" in w.element) {
+    w.element.value = String(seedValue);
+    try {
+      w.element.dispatchEvent(new Event("input", { bubbles: true }));
+    } catch (_) { /* ignore */ }
+  }
+}
+
 /** The node's active tags: its pool, or the built-in default pool if empty. */
 function getActiveTags(node) {
   const tags = getPoolTags(node);
@@ -149,6 +171,16 @@ function _setStringWidget(node, name, value) {
 /** Write the comma-joined picks into the node's serialized ``picked`` widget. */
 function setPickedWidget(node, value) {
   _setStringWidget(node, "picked", value);
+}
+
+/**
+ * Compute a order-independent fingerprint for a tag array.
+ * Used to detect whether the pool has changed since the last populate run.
+ * @param {string[]} tags
+ * @returns {string}
+ */
+function _computePoolFingerprint(tags) {
+  return tags.slice().map((t) => t.toLowerCase()).sort().join("");
 }
 
 /**
@@ -212,9 +244,15 @@ function aggregatePresetMeta(picks) {
  * characters and their resolved meta are serialized into the workflow /
  * prompt and embedded in the saved image's metadata.
  *
+ * When ``picked`` already has a value and the pool has not changed since the
+ * last run (fingerprint match), the node is skipped so that a workflow loaded
+ * from a PNG retains its saved picks on the first queue.
+ *
  * @param {Object} graph - LiteGraph graph instance
+ * @param {Object} [options]
+ * @param {boolean} [options.force=false] - bypass skip logic and always recompute
  */
-export function populateCharacterRandomizers(graph) {
+export function populateCharacterRandomizers(graph, { force = false } = {}) {
   if (!graph || !Array.isArray(graph._nodes)) return;
   for (const node of graph._nodes) {
     if (!node || node.type !== "AnimaCharacterRandomizer") continue;
@@ -226,12 +264,32 @@ export function populateCharacterRandomizers(graph) {
       _setStringWidget(node, "picked_prompt_example", "");
       continue;
     }
+
+    if (!force) {
+      const pickedW = Array.isArray(node.widgets)
+        ? node.widgets.find((x) => x.name === "picked") : null;
+      const currentPicked = pickedW && typeof pickedW.value === "string"
+        ? pickedW.value.trim() : "";
+      const fingerprint = _computePoolFingerprint(tags);
+      if (currentPicked !== "") {
+        if (node.__animaLastPoolFingerprint === undefined) {
+          // 初回ロード: picked を信頼して fingerprint だけ初期化
+          node.__animaLastPoolFingerprint = fingerprint;
+          continue;
+        }
+        if (node.__animaLastPoolFingerprint === fingerprint) {
+          continue; // pool 変更なし → skip
+        }
+      }
+    }
+
     const picked = seededPickTags(tags, getCount(node), getSeed(node));
     setPickedWidget(node, picked.join(", "));
     const meta = aggregatePresetMeta(picked);
     _setStringWidget(node, "picked_series", meta.series);
     _setStringWidget(node, "picked_general", meta.general);
     _setStringWidget(node, "picked_prompt_example", meta.promptExample);
+    node.__animaLastPoolFingerprint = _computePoolFingerprint(tags);
   }
 }
 
@@ -384,6 +442,17 @@ export function injectCharacterRandomizerPanel(node) {
   previewEl.className = "aph-ar-preview";
   previewRow.append(rollBtn, previewEl);
 
+  // --- Shuffle row ---
+  const shuffleRow = document.createElement("div");
+  shuffleRow.className = "aph-ar-row aph-ar-shuffle-row";
+  const shuffleBtn = document.createElement("button");
+  shuffleBtn.className = "aph-btn aph-ar-shuffle-btn";
+  shuffleBtn.textContent = "🔀 再シャッフル";
+  shuffleBtn.title = "picked を強制再計算して次の queue に反映する（fingerprint を無視）";
+  shuffleBtn.style.borderColor = "var(--aph-accent, #4a90e2)";
+  shuffleBtn.style.fontWeight = "600";
+  shuffleRow.appendChild(shuffleBtn);
+
   // --- Target composer row ---
   const targetRow = document.createElement("div");
   targetRow.className = "aph-ar-row aph-ar-target-row";
@@ -410,7 +479,7 @@ export function injectCharacterRandomizerPanel(node) {
 
   panelEl.append(
     headerEl, sourceRow, addRow, summaryEl, chipsEl,
-    previewRow, targetRow, statusEl
+    previewRow, shuffleRow, targetRow, statusEl
   );
 
   function setStatus(msg, isError) {
@@ -585,6 +654,27 @@ export function injectCharacterRandomizerPanel(node) {
     previewEl.textContent = `seed ${getSeed(node)}: ${picked.join(", ")}`;
   });
 
+  shuffleBtn.addEventListener("click", () => {
+    const tags = getActiveTags(node);
+    if (!tags.length) { setStatus("プールが空です。", true); return; }
+    const newSeed = _generateRandomSeed();
+    _setSeedWidget(node, newSeed);
+    const picked = seededPickTags(tags, getCount(node), newSeed);
+    setPickedWidget(node, picked.join(", "));
+    const meta = aggregatePresetMeta(picked);
+    _setStringWidget(node, "picked_series", meta.series);
+    _setStringWidget(node, "picked_general", meta.general);
+    _setStringWidget(node, "picked_prompt_example", meta.promptExample);
+    node.__animaLastPoolFingerprint = _computePoolFingerprint(tags);
+    previewEl.textContent = `seed ${newSeed}: ${picked.join(", ")}`;
+    try {
+      if (node.graph && typeof node.graph.setDirtyCanvas === "function") {
+        node.graph.setDirtyCanvas(true, true);
+      }
+    } catch (_) { /* ignore */ }
+    setStatus(`シャッフルしました（seed: ${newSeed}）。次の queue に反映されます。`, false);
+  });
+
   insertBtn.addEventListener("click", () => {
     const composerId = parseInt(composerSelect.value, 10);
     if (!composerId) { setStatus("対象 Composer を選択してください。", true); return; }
@@ -682,4 +772,12 @@ export function injectCharacterRandomizerPanel(node) {
   rebuildPoolOptions();
   refreshComposerList();
   renderChips();
+
+  // PNG 復元検出: パネル初期描画時に picked が既に埋まっていれば
+  // ワークフロー（PNG）から復元されたと判断してその旨を表示する。
+  const initialPicked = (Array.isArray(node.widgets)
+    ? node.widgets.find((x) => x.name === "picked") : null)?.value?.trim?.() || "";
+  if (initialPicked) {
+    setStatus("PNG から復元済み。シャッフルすると別の picks に変わります。", false);
+  }
 }
