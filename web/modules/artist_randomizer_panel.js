@@ -32,6 +32,10 @@ import {
   formatCount,
   hasArtistList,
 } from "./artist_suggest.js";
+import {
+  shouldRecomputePicked,
+  recordPickedState,
+} from "./randomizer_recompute.js";
 
 // Hard cap on how many chips we render at once — the built-in pool has
 // thousands of tags and rendering them all would stall the canvas.
@@ -180,27 +184,24 @@ export function populateArtistRandomizers(graph, { force = false } = {}) {
     const tags = getActiveTags(node);
     if (!tags.length) { setPickedWidget(node, ""); continue; }
 
-    if (!force) {
-      const pickedW = Array.isArray(node.widgets)
-        ? node.widgets.find((x) => x.name === "picked") : null;
-      const currentPicked = pickedW && typeof pickedW.value === "string"
-        ? pickedW.value.trim() : "";
-      const fingerprint = _computePoolFingerprint(tags);
-      if (currentPicked !== "") {
-        if (node.__animaLastPoolFingerprint === undefined) {
-          // 初回ロード: picked を信頼して fingerprint だけ初期化
-          node.__animaLastPoolFingerprint = fingerprint;
-          continue;
-        }
-        if (node.__animaLastPoolFingerprint === fingerprint) {
-          continue; // pool 変更なし → skip
-        }
-      }
+    const fingerprint = _computePoolFingerprint(tags);
+    const seed = getSeed(node);
+    const count = getCount(node);
+    const pickedW = Array.isArray(node.widgets)
+      ? node.widgets.find((x) => x.name === "picked") : null;
+    const hasPicked = !!(pickedW && typeof pickedW.value === "string"
+      && pickedW.value.trim());
+
+    // Skip only when nothing that affects the selection changed. Crucially the
+    // seed is part of this check, so a seed advanced by control_after_generate
+    // recomputes a fresh pick instead of freezing the previous one.
+    if (!shouldRecomputePicked(node, { force, hasPicked, fingerprint, seed, count })) {
+      continue;
     }
 
-    const picked = seededPickArtists(tags, getCount(node), getSeed(node));
+    const picked = seededPickArtists(tags, count, seed);
     setPickedWidget(node, picked.join(", "));
-    node.__animaLastPoolFingerprint = _computePoolFingerprint(tags);
+    recordPickedState(node, { fingerprint, seed, count });
   }
 }
 
@@ -585,9 +586,14 @@ export function injectArtistRandomizerPanel(node) {
     if (!tags.length) { setStatus("プールが空です。", true); return; }
     const newSeed = _generateRandomSeed();
     _setSeedWidget(node, newSeed);
-    const picked = seededPickArtists(tags, getCount(node), newSeed);
+    const count = getCount(node);
+    const picked = seededPickArtists(tags, count, newSeed);
     setPickedWidget(node, picked.join(", "));
-    node.__animaLastPoolFingerprint = _computePoolFingerprint(tags);
+    recordPickedState(node, {
+      fingerprint: _computePoolFingerprint(tags),
+      seed: newSeed,
+      count,
+    });
     previewEl.textContent = `seed ${newSeed}: ${picked.join(", ")}`;
     try {
       if (node.graph && typeof node.graph.setDirtyCanvas === "function") {
