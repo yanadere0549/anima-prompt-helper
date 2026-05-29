@@ -11,6 +11,7 @@
  */
 
 import { addTagToField, getFieldWidget } from "./composer.js";
+import { openSituationPresetEditor } from "./preset_editor.js";
 import {
   COMPOSER_FIELDS,
   buildTagToFieldMap,
@@ -168,9 +169,17 @@ export function injectPromptImporterPanel(node) {
   clearSelBtn.className = "aph-importer-secondary-btn";
   clearSelBtn.textContent = "選択クリア";
 
+  const saveSituationBtn = document.createElement("button");
+  saveSituationBtn.type = "button";
+  saveSituationBtn.className = "aph-importer-secondary-btn";
+  saveSituationBtn.textContent = "💾 シチュとして保存";
+  saveSituationBtn.title =
+    "選択中の general / natural_language / count をシチュエーションプリセットとして保存";
+
   controlsEl.appendChild(composerSelect);
   controlsEl.appendChild(applyAllBtn);
   controlsEl.appendChild(clearSelBtn);
+  controlsEl.appendChild(saveSituationBtn);
 
   // --- Status / warning line ---
   const statusEl = document.createElement("p");
@@ -554,6 +563,34 @@ export function injectPromptImporterPanel(node) {
     return added;
   }
 
+  /**
+   * Build a situation-preset snapshot from the currently-selected tokens.
+   *
+   * Maps the importer's classified buckets onto the situation-preset shape:
+   *   - general          → general_tags (array, original casing preserved)
+   *   - natural_language  → natural_language (selected NL tokens joined by space)
+   *   - count             → count_override (selected count tokens joined by ", ")
+   *
+   * The other buckets (quality/year/rating/character/series/artist) are not part
+   * of a situation preset and are ignored.
+   *
+   * @returns {{count_override: ?string, general_tags: string[], natural_language: string}}
+   */
+  function buildSituationSnapshot() {
+    const pickSelected = (field) =>
+      (lastBuckets && lastBuckets[field] ? lastBuckets[field] : []).filter((t) =>
+        selected[field].has(t.trim().toLowerCase())
+      );
+    const generalTags = pickSelected("general");
+    const nlTokens = pickSelected("natural_language");
+    const countTokens = pickSelected("count");
+    return {
+      count_override: countTokens.length ? countTokens.join(", ") : null,
+      general_tags: generalTags,
+      natural_language: nlTokens.join(" ").trim(),
+    };
+  }
+
   // -------------------------------------------------------------------------
   // Classification driver
   // -------------------------------------------------------------------------
@@ -748,6 +785,29 @@ export function injectPromptImporterPanel(node) {
   clearSelBtn.addEventListener("click", () => {
     for (const f of COMPOSER_FIELDS) selected[f].clear();
     renderBuckets();
+  });
+
+  // Save the selected general / natural_language / count tokens as a new
+  // situation preset. Opens the shared situation-preset editor pre-filled from
+  // the importer's classified state (no Composer node required).
+  saveSituationBtn.addEventListener("click", () => {
+    if (!lastBuckets) {
+      showStatus("先に画像をドロップするか raw を再分類してください。", true);
+      return;
+    }
+    const snapshot = buildSituationSnapshot();
+    if (
+      !snapshot.general_tags.length &&
+      !snapshot.natural_language &&
+      !snapshot.count_override
+    ) {
+      showStatus(
+        "general / natural_language / count に選択中のタグがありません。",
+        true
+      );
+      return;
+    }
+    openSituationPresetEditor({ mode: "create", snapshot });
   });
 
   composerSelect.addEventListener("change", clearStatus);

@@ -357,18 +357,37 @@ const SITUATION_CATEGORY_OPTIONS = [
 /**
  * Open the situation-preset editor dialog.
  *
+ * Pre-fill priority (create mode): ``opts.snapshot`` (a direct
+ * {count_override, general_tags, natural_language} object — used by the Prompt
+ * Importer to seed the form from its classified tokens) takes precedence over
+ * ``opts.sourceComposerNode`` (snapshotted from a live Composer node).
+ *
  * @param {Object} opts
  * @param {"create"|"edit"} opts.mode
  * @param {Object} [opts.preset]
  * @param {Object} [opts.sourceComposerNode]
+ * @param {{count_override: ?string, general_tags: string[], natural_language: string}} [opts.snapshot]
  */
 export function openSituationPresetEditor(opts) {
   closeActive();
   const mode = opts && opts.mode === "edit" ? "edit" : "create";
   const existing = mode === "edit" && opts && opts.preset ? opts.preset : null;
-  const snapshot = mode === "create" && opts && opts.sourceComposerNode
-    ? snapshotSituationFromComposer(opts.sourceComposerNode)
-    : { count_override: null, general_tags: [], natural_language: "" };
+  let snapshot = { count_override: null, general_tags: [], natural_language: "" };
+  if (mode === "create" && opts) {
+    if (opts.snapshot && typeof opts.snapshot === "object") {
+      snapshot = {
+        count_override: opts.snapshot.count_override || null,
+        general_tags: Array.isArray(opts.snapshot.general_tags)
+          ? opts.snapshot.general_tags
+          : [],
+        natural_language: typeof opts.snapshot.natural_language === "string"
+          ? opts.snapshot.natural_language
+          : "",
+      };
+    } else if (opts.sourceComposerNode) {
+      snapshot = snapshotSituationFromComposer(opts.sourceComposerNode);
+    }
+  }
 
   const overlay = document.createElement("div");
   overlay.className = "aph-modal-overlay";
